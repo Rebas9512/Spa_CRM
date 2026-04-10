@@ -71,6 +71,8 @@ CREATE TABLE IF NOT EXISTS customers (
   emergency_contact_name  TEXT,
   emergency_contact_phone TEXT,
   staff_notes             TEXT DEFAULT '',
+  loyalty_points          INTEGER NOT NULL DEFAULT 0 CHECK (loyalty_points >= 0),
+  loyalty_imported_at     TEXT,
   created_at              TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at              TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -114,6 +116,8 @@ CREATE TABLE IF NOT EXISTS visits (
   therapist_body_parts_notes    TEXT,
   therapist_signature_data_url  TEXT,
   therapist_signed_at           TEXT,
+  points_redeemed  INTEGER NOT NULL DEFAULT 0,
+  points_after     INTEGER,
   cancelled_at     TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

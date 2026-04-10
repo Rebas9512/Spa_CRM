@@ -55,7 +55,9 @@ visits.get('/customers/:id/visits', async (c) => {
     serviceType: v.service_type,
     therapistName: v.therapist_name,
     storeName: v.store_name,
+    therapistServiceTechnique: v.therapist_service_technique ?? null,
     therapistSignedAt: v.therapist_signed_at,
+    pointsRedeemed: v.points_redeemed ?? 0, pointsAfter: v.points_after ?? null,
     cancelledAt: v.cancelled_at,
     createdAt: v.created_at,
   }))
@@ -69,7 +71,7 @@ visits.get('/visits/:id', async (c) => {
   const session = c.get('session')
 
   const visit = await c.env.DB.prepare(`
-    SELECT v.*, c.first_name, c.last_name
+    SELECT v.*, c.first_name, c.last_name, c.loyalty_points
     FROM visits v JOIN customers c ON v.customer_id = c.id
     WHERE v.id = ?
   `).bind(id).first<Record<string, unknown>>()
@@ -126,6 +128,7 @@ visits.get('/visits/:id', async (c) => {
       therapistSignedAt: visit.therapist_signed_at,
       cancelledAt: visit.cancelled_at,
       createdAt: visit.created_at,
+      customerLoyaltyPoints: visit.loyalty_points ?? 0,
       healthAlerts,
       areasToAvoid,
       nextPendingVisitId: nextPending?.id || null,
@@ -141,6 +144,7 @@ visits.patch('/visits/:id/therapist', async (c) => {
     therapistName: z.string().min(1),
     therapistServiceTechnique: z.string().min(1),
     therapistBodyPartsNotes: z.string().min(1),
+    redeemPoints: z.boolean().optional().default(false),
   }).safeParse(await c.req.json())
   if (!parsed.success) return c.json({ error: 'Invalid input' }, 400)
   const body = parsed.data
@@ -155,17 +159,47 @@ visits.patch('/visits/:id/therapist', async (c) => {
 
   if (visit.therapist_signed_at) return c.json({ error: 'Visit already signed' }, 409)
 
-  // db.batch: sign visit + update intake_forms.status (14.3)
-  await c.env.DB.batch([
+  // Loyalty points: pre-check for early 400 (non-atomic, but atomic guard is in SQL below)
+  if (body.redeemPoints) {
+    const customer = await c.env.DB.prepare(
+      'SELECT loyalty_points FROM customers WHERE id = ?',
+    ).bind(visit.customer_id).first<{ loyalty_points: number }>()
+    if (!customer || customer.loyalty_points < 10) {
+      return c.json({ error: 'Insufficient loyalty points for redemption' }, 400)
+    }
+  }
+
+  const pointsRedeemed = body.redeemPoints ? 10 : 0
+
+  // db.batch: sign visit + update intake + loyalty points (atomic guard via CASE)
+  const batchOps = [
     c.env.DB.prepare(
       `UPDATE visits SET therapist_name = ?, therapist_service_technique = ?, therapist_body_parts_notes = ?,
-       therapist_signed_at = datetime('now') WHERE id = ?`,
-    ).bind(body.therapistName, body.therapistServiceTechnique, body.therapistBodyPartsNotes, id),
+       therapist_signed_at = datetime('now'), points_redeemed = ? WHERE id = ?`,
+    ).bind(body.therapistName, body.therapistServiceTechnique, body.therapistBodyPartsNotes, pointsRedeemed, id),
     c.env.DB.prepare(
       `UPDATE intake_forms SET status = 'completed', completed_at = datetime('now')
        WHERE customer_id = ? AND status = 'client_signed'`,
     ).bind(visit.customer_id),
-  ])
+    // Atomic: only deduct if balance sufficient, otherwise just +1
+    c.env.DB.prepare(
+      `UPDATE customers SET loyalty_points = CASE
+         WHEN ? > 0 AND loyalty_points >= ? THEN loyalty_points + 1 - ?
+         ELSE loyalty_points + 1
+       END WHERE id = ?`,
+    ).bind(pointsRedeemed, pointsRedeemed, pointsRedeemed, visit.customer_id),
+  ]
+  await c.env.DB.batch(batchOps)
+
+  // Read actual balance after batch to record accurate points_after
+  const updated = await c.env.DB.prepare(
+    'SELECT loyalty_points FROM customers WHERE id = ?',
+  ).bind(visit.customer_id).first<{ loyalty_points: number }>()
+  const pointsAfter = updated?.loyalty_points ?? 0
+
+  await c.env.DB.prepare(
+    'UPDATE visits SET points_after = ? WHERE id = ?',
+  ).bind(pointsAfter, id).run()
 
   // Find next pending visit for "Sign & Next"
   const nextPending = await c.env.DB.prepare(

@@ -5,10 +5,19 @@ export interface VisitRecord {
   id: string
   visitDate: string
   serviceType: string | null
+  therapistServiceTechnique: string | null
   therapistName: string | null
   therapistSignedAt: string | null
+  pointsRedeemed?: number
+  pointsAfter?: number | null
   cancelledAt: string | null
   storeName?: string | null
+}
+
+/** Normalize technique text: uppercase, remove punctuation, keep letters/digits/CJK */
+export function normalizeTechnique(raw: string | null | undefined): string {
+  if (!raw) return '-'
+  return raw.replace(/[^\p{L}\p{N}\s]/gu, '').replace(/\s+/g, ' ').trim().toUpperCase() || '-'
 }
 
 interface VisitHistoryProps {
@@ -62,6 +71,12 @@ export default function VisitHistory({ visits, onCancel, showLocation }: VisitHi
               </th>
             )}
             <th className="py-2 px-3 text-xs font-medium text-gray-500 uppercase">
+              {t('visit.pointsRedeemed')}
+            </th>
+            <th className="py-2 px-3 text-xs font-medium text-gray-500 uppercase">
+              {t('visit.pointsAfter')}
+            </th>
+            <th className="py-2 px-3 text-xs font-medium text-gray-500 uppercase">
               {t('visit.status')}
             </th>
             <th className="py-2 px-3 text-xs font-medium text-gray-500 uppercase">
@@ -82,7 +97,7 @@ export default function VisitHistory({ visits, onCancel, showLocation }: VisitHi
                   {v.visitDate}
                 </td>
                 <td className="py-2.5 px-3 text-sm text-gray-600">
-                  {v.serviceType ?? '-'}
+                  {v.cancelledAt ? '-' : normalizeTechnique(v.therapistServiceTechnique)}
                 </td>
                 <td className="py-2.5 px-3 text-sm text-gray-600">
                   {v.therapistName ?? '-'}
@@ -92,6 +107,16 @@ export default function VisitHistory({ visits, onCancel, showLocation }: VisitHi
                     {v.storeName ?? '-'}
                   </td>
                 )}
+                <td className="py-2.5 px-3 text-sm text-gray-600">
+                  {status === 'completed'
+                    ? (v.pointsRedeemed && v.pointsRedeemed > 0
+                        ? <span className="text-amber-600 font-medium">{t('common.yes')}</span>
+                        : t('common.no'))
+                    : '-'}
+                </td>
+                <td className="py-2.5 px-3 text-sm text-gray-600">
+                  {status === 'completed' && v.pointsAfter != null ? v.pointsAfter : '-'}
+                </td>
                 <td className="py-2.5 px-3">
                   <span
                     className="px-2 py-0.5 text-xs font-medium rounded-full"
@@ -118,7 +143,7 @@ export default function VisitHistory({ visits, onCancel, showLocation }: VisitHi
           {visits.length === 0 && (
             <tr>
               <td
-                colSpan={showLocation ? 6 : 5}
+                colSpan={showLocation ? 8 : 7}
                 className="py-6 text-center text-gray-400 text-sm"
               >
                 {t('visit.noHistory')}

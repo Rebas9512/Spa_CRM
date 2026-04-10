@@ -1,3 +1,18 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@media print {
+  /* Hide navigation and action elements */
+  .no-print { display: none !important; }
+  /* Reset backgrounds for clean print */
+  body, .min-h-screen { background: white !important; min-height: auto !important; }
+  /* Prevent page breaks inside cards */
+  .rounded-xl { break-inside: avoid; }
+  /* SVG charts scale properly */
+  svg { max-width: 100%; height: auto; }
+  /* Remove shadows for cleaner look */
+  .shadow-sm { box-shadow: none !important; }
+  /* Print title */
+  .print-title { display: block !important; }
+}

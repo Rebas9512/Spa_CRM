@@ -12,6 +12,7 @@ interface VisitDetail {
   customerName: string
   serviceType: string | null
   visitDate: string
+  customerLoyaltyPoints: number
   healthAlerts: HealthAlerts
   areasToAvoid: string
   nextPendingVisitId: string | null
@@ -36,6 +37,7 @@ export default function TherapistRecordPage() {
   const [bodyParts, setBodyParts] = useState('')
   const [validationError, setValidationError] = useState('')
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+  const [redeemPoints, setRedeemPoints] = useState(false)
 
   const { data: visit, isError } = useQuery({
     queryKey: ['visit-detail', id],
@@ -56,6 +58,7 @@ export default function TherapistRecordPage() {
             therapistName: therapistName.trim(),
             therapistServiceTechnique: technique,
             therapistBodyPartsNotes: bodyParts,
+            redeemPoints,
           }),
         },
       )
@@ -168,7 +171,7 @@ export default function TherapistRecordPage() {
 
       <div className="flex-1 px-6 py-6 max-w-2xl mx-auto w-full flex flex-col gap-5">
         {/* Client Info */}
-        <div className="bg-white rounded-xl border border-gray-200 px-5 py-4 flex items-center gap-4">
+        <div className="bg-white rounded-xl border border-gray-200 px-5 py-4 flex items-center gap-4 flex-wrap">
           <span className="font-semibold text-gray-900">
             {visit.customerName}
           </span>
@@ -178,6 +181,10 @@ export default function TherapistRecordPage() {
           </span>
           <span className="text-gray-400">&middot;</span>
           <span className="text-sm text-gray-500">{visit.visitDate}</span>
+          <span className="text-gray-400">&middot;</span>
+          <span className={`text-sm font-medium ${visit.customerLoyaltyPoints >= 10 ? 'text-amber-600' : 'text-gray-600'}`}>
+            {t('therapist.loyaltyPoints')}: {visit.customerLoyaltyPoints}
+          </span>
         </div>
 
         {/* Health Alert Bar */}
@@ -238,6 +245,28 @@ export default function TherapistRecordPage() {
             className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0F766E]"
           />
         </div>
+
+        {/* Loyalty Points Redemption */}
+        {visit.customerLoyaltyPoints >= 10 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 flex items-center justify-between">
+            <span className="text-sm font-medium text-amber-800">
+              {t('therapist.redeemPoints')}
+            </span>
+            <button
+              type="button"
+              onClick={() => setRedeemPoints(!redeemPoints)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                redeemPoints ? 'bg-[#0F766E]' : 'bg-gray-300'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  redeemPoints ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+        )}
 
         {/* Validation error */}
         {validationError && (

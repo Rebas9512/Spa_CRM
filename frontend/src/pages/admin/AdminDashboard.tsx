@@ -47,6 +47,12 @@ export default function AdminDashboard() {
         </h1>
         <div className="flex items-center gap-3">
           <button
+            onClick={() => navigate('/admin/analytics')}
+            className="px-4 py-2 text-sm font-medium bg-[#0F766E] text-white rounded-lg hover:bg-[#0d6b63] transition-colors"
+          >
+            {t('analytics.title')}
+          </button>
+          <button
             onClick={() => navigate('/admin/general-settings')}
             className="px-4 py-2 text-sm font-medium border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
@@ -92,7 +98,6 @@ export default function AdminDashboard() {
               <StoreCard
                 key={store.id}
                 store={store}
-                onManage={() => navigate(`/s/${store.id}/manage`)}
                 onEnter={() => handleEnterStore(store.id, navigate, setBoundStoreId)}
               />
             ))}

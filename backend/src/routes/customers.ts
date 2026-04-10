@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { z } from 'zod'
 import { generateId } from '../lib/id'
 import { phoneSchema, createCustomerSchema } from '@spa-crm/shared'
 
@@ -71,6 +72,39 @@ customers.get('/search', async (c) => {
       healthAlerts,
     },
   })
+})
+
+// --- GET /customers/lookup?q= (global fuzzy search by name or phone) ---
+customers.get('/lookup', async (c) => {
+  const q = (c.req.query('q') || '').trim()
+  if (!q) return c.json({ customers: [] })
+
+  const like = `%${q}%`
+  const rows = await c.env.DB.prepare(`
+    SELECT c.*, if2.form_data
+    FROM customers c
+    LEFT JOIN intake_forms if2 ON if2.customer_id = c.id
+    WHERE c.first_name LIKE ? OR c.last_name LIKE ? OR c.phone LIKE ?
+    ORDER BY c.updated_at DESC
+    LIMIT 20
+  `).bind(like, like, like).all<Record<string, unknown>>()
+
+  const customers = (rows.results || []).map((r) => {
+    let healthStatus = 'ok'
+    try {
+      const fd = JSON.parse((r.form_data as string) || '{}')
+      if (fd.hasHighBloodPressure || fd.hasHeartConditions || fd.isPregnant || fd.hasInjuries || fd.hasVaricoseVeins) {
+        healthStatus = 'alert'
+      }
+    } catch { /* empty */ }
+    return {
+      id: r.id, firstName: r.first_name, lastName: r.last_name, phone: r.phone,
+      lastVisitDate: null, lastService: null, lastTherapist: null,
+      totalVisits: 0, intakeStatus: null, healthStatus,
+    }
+  })
+
+  return c.json({ customers })
 })
 
 // --- GET /customers/recent?limit= ---
@@ -245,7 +279,9 @@ customers.get('/:id', async (c) => {
     serviceType: v.service_type,
     therapistName: v.therapist_name,
     storeName: v.store_name,
+    therapistServiceTechnique: v.therapist_service_technique ?? null,
     therapistSignedAt: v.therapist_signed_at,
+    pointsRedeemed: v.points_redeemed ?? 0, pointsAfter: v.points_after ?? null,
     cancelledAt: v.cancelled_at,
   }))
 
@@ -262,6 +298,8 @@ customers.get('/:id', async (c) => {
       emergencyContactName: customer.emergency_contact_name,
       emergencyContactPhone: customer.emergency_contact_phone,
       staffNotes: customer.staff_notes || '',
+      loyaltyPoints: customer.loyalty_points ?? 0,
+      loyaltyImportedAt: customer.loyalty_imported_at ?? null,
       createdAt: customer.created_at,
       updatedAt: customer.updated_at,
       totalVisits: stats?.totalVisits || 0,
@@ -323,6 +361,45 @@ customers.patch('/:id/notes', async (c) => {
 
   await c.env.DB.prepare('UPDATE customers SET staff_notes = ? WHERE id = ?').bind(body.staffNotes, id).run()
   return c.json({ updated: true })
+})
+
+// --- POST /customers/:id/import-points (one-time staff import) ---
+customers.post('/:id/import-points', async (c) => {
+  const id = c.req.param('id')
+  const parsed = z.object({
+    points: z.number().int().min(1),
+  }).safeParse(await c.req.json())
+  if (!parsed.success) return c.json({ error: 'Invalid input: points must be a positive integer' }, 400)
+
+  const customer = await c.env.DB.prepare(
+    'SELECT id, loyalty_imported_at FROM customers WHERE id = ?',
+  ).bind(id).first<{ id: string; loyalty_imported_at: string | null }>()
+  if (!customer) return c.json({ error: 'Customer not found' }, 404)
+
+  // Early check (non-atomic, atomic guard is in SQL below)
+  if (customer.loyalty_imported_at) {
+    return c.json({ error: 'Points already imported for this customer' }, 400)
+  }
+
+  // Atomic: only import if loyalty_imported_at IS NULL (prevents concurrent double-import)
+  await c.env.DB.prepare(
+    `UPDATE customers SET loyalty_points = loyalty_points + ?,
+     loyalty_imported_at = datetime('now')
+     WHERE id = ? AND loyalty_imported_at IS NULL`,
+  ).bind(parsed.data.points, id).run()
+
+  const updated = await c.env.DB.prepare(
+    'SELECT loyalty_points, loyalty_imported_at FROM customers WHERE id = ?',
+  ).bind(id).first<{ loyalty_points: number; loyalty_imported_at: string | null }>()
+
+  if (!updated?.loyalty_imported_at) {
+    return c.json({ error: 'Points already imported for this customer' }, 400)
+  }
+
+  return c.json({
+    loyaltyPoints: updated.loyalty_points,
+    loyaltyImportedAt: updated.loyalty_imported_at,
+  })
 })
 
 export default customers

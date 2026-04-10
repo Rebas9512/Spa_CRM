@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { z } from 'zod'
 import { hashPassword, verifyHash } from '../lib/hash'
 import { generateId } from '../lib/id'
 import { generateCustomersCsv, generateVisitsCsv } from '../lib/csv'
@@ -163,19 +164,21 @@ admin.get('/stores/:id/customers', async (c) => {
   const pageSize = Math.min(parseInt(c.req.query('pageSize') || '20', 10) || 20, 100)
   const offset = (page - 1) * pageSize
 
-  let whereClause = 'WHERE v.store_id = ?'
-  const params: unknown[] = [storeId]
+  // Show all customers across all admin's stores (global within account)
+  let whereClause = 'WHERE s.admin_id = ?'
+  const params: unknown[] = [adminId]
   if (search) { whereClause += ' AND (c.first_name LIKE ? OR c.last_name LIKE ? OR c.phone LIKE ?)'; const s = `%${search}%`; params.push(s, s, s) }
   if (lastVisitAfter) { whereClause += ' AND v.visit_date >= ?'; params.push(lastVisitAfter) }
 
   const countResult = await c.env.DB.prepare(
-    `SELECT COUNT(DISTINCT c.id) as total FROM customers c JOIN visits v ON v.customer_id = c.id ${whereClause}`,
+    `SELECT COUNT(DISTINCT c.id) as total FROM customers c JOIN visits v ON v.customer_id = c.id JOIN stores s ON v.store_id = s.id ${whereClause}`,
   ).bind(...params).first<{ total: number }>()
 
   const rows = await c.env.DB.prepare(`
     SELECT c.id, c.first_name, c.last_name, c.phone, c.email,
            MAX(v.visit_date) as last_visit, COUNT(v.id) as total_visits
     FROM customers c JOIN visits v ON v.customer_id = c.id
+    JOIN stores s ON v.store_id = s.id
     ${whereClause} GROUP BY c.id ORDER BY last_visit DESC LIMIT ? OFFSET ?
   `).bind(...params, pageSize, offset).all<Record<string, unknown>>()
 
@@ -202,13 +205,16 @@ admin.get('/stores/:id/visits', async (c) => {
   const pageSize = Math.min(parseInt(c.req.query('pageSize') || '20', 10) || 20, 100)
   const offset = (page - 1) * pageSize
 
-  let whereClause = 'WHERE v.store_id = ?'
-  const params: unknown[] = [storeId]
+  // Show all visits across all admin's stores (global within account)
+  let whereClause = 'WHERE s.admin_id = ?'
+  const params: unknown[] = [adminId]
   if (dateFrom) { whereClause += ' AND v.visit_date >= ?'; params.push(dateFrom) }
   if (dateTo) { whereClause += ' AND v.visit_date <= ?'; params.push(dateTo) }
   if (therapistName) { whereClause += ' AND v.therapist_name LIKE ?'; params.push(`%${therapistName}%`) }
 
-  const countResult = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM visits v ${whereClause}`).bind(...params).first<{ total: number }>()
+  const countResult = await c.env.DB.prepare(
+    `SELECT COUNT(*) as total FROM visits v JOIN stores s ON v.store_id = s.id ${whereClause}`,
+  ).bind(...params).first<{ total: number }>()
 
   const rows = await c.env.DB.prepare(`
     SELECT v.*, c.first_name, c.last_name, c.phone, s.name as store_name FROM visits v
@@ -221,8 +227,9 @@ admin.get('/stores/:id/visits', async (c) => {
     visits: (rows.results || []).map((v) => ({
       id: v.id, visitDate: v.visit_date, customerName: `${v.first_name} ${v.last_name}`,
       phone: v.phone, serviceType: v.service_type, therapistName: v.therapist_name,
-      therapistSignedAt: v.therapist_signed_at, cancelledAt: v.cancelled_at,
-      storeName: v.store_name,
+      therapistServiceTechnique: v.therapist_service_technique ?? null,
+      therapistSignedAt: v.therapist_signed_at, pointsRedeemed: v.points_redeemed ?? 0, pointsAfter: v.points_after ?? null,
+      cancelledAt: v.cancelled_at, storeName: v.store_name,
     })),
     total: countResult?.total || 0, page,
   })
@@ -298,7 +305,8 @@ admin.get('/customers/:id', async (c) => {
       dateOfBirth: row.date_of_birth, gender: row.gender,
       emergencyContactName: row.emergency_contact_name,
       emergencyContactPhone: row.emergency_contact_phone,
-      staffNotes: row.staff_notes, createdAt: row.created_at, updatedAt: row.updated_at,
+      staffNotes: row.staff_notes, loyaltyPoints: row.loyalty_points ?? 0, loyaltyImportedAt: row.loyalty_imported_at ?? null,
+      createdAt: row.created_at, updatedAt: row.updated_at,
     },
   })
 })
@@ -348,7 +356,9 @@ admin.get('/customers/:id/visits', async (c) => {
       id: v.id, customerId: v.customer_id, storeId: v.store_id,
       visitDate: v.visit_date, serviceType: v.service_type,
       therapistName: v.therapist_name, storeName: v.store_name,
-      therapistSignedAt: v.therapist_signed_at, cancelledAt: v.cancelled_at,
+      therapistServiceTechnique: v.therapist_service_technique ?? null,
+      therapistSignedAt: v.therapist_signed_at, pointsRedeemed: v.points_redeemed ?? 0, pointsAfter: v.points_after ?? null,
+      cancelledAt: v.cancelled_at,
     })),
   })
 })
@@ -368,6 +378,309 @@ admin.patch('/customers/:id/notes', async (c) => {
   ).bind(body.staffNotes, customerId).run()
 
   return c.json({ ok: true })
+})
+
+// --- PATCH /admin/customers/:id/loyalty-points (admin modify with PIN) ---
+admin.patch('/customers/:id/loyalty-points', async (c) => {
+  const { adminId } = c.get('admin')
+  const customerId = c.req.param('id')
+
+  const parsed = z.object({
+    loyaltyPoints: z.number().int().min(0),
+    pin: z.string().min(1),
+  }).safeParse(await c.req.json())
+  if (!parsed.success) return c.json({ error: 'Invalid input' }, 400)
+  const { loyaltyPoints, pin } = parsed.data
+
+  // Verify customer belongs to admin
+  const ownership = await c.env.DB.prepare(
+    'SELECT 1 FROM visits v JOIN stores s ON v.store_id = s.id WHERE v.customer_id = ? AND s.admin_id = ? LIMIT 1',
+  ).bind(customerId, adminId).first()
+  if (!ownership) return c.json({ error: 'Not found' }, 404)
+
+  // Verify PIN against any of admin's stores
+  const stores = await c.env.DB.prepare(
+    'SELECT admin_pin_hash FROM stores WHERE admin_id = ?',
+  ).bind(adminId).all<{ admin_pin_hash: string }>()
+
+  let pinValid = false
+  for (const store of stores.results || []) {
+    if (await verifyHash(pin, store.admin_pin_hash)) {
+      pinValid = true
+      break
+    }
+  }
+  if (!pinValid) return c.json({ error: 'PIN incorrect' }, 403)
+
+  await c.env.DB.prepare(
+    'UPDATE customers SET loyalty_points = ? WHERE id = ?',
+  ).bind(loyaltyPoints, customerId).run()
+
+  return c.json({ loyaltyPoints })
+})
+
+// ============================================================================
+// Account-level Analytics (cross-store, scoped to admin's stores)
+// ============================================================================
+
+// --- GET /admin/analytics/store-comparison?period=month|year ---
+// Monthly visit counts per store for comparison
+admin.get('/analytics/store-comparison', async (c) => {
+  const { adminId } = c.get('admin')
+  const period = c.req.query('period') || 'year'
+
+  const now = new Date()
+  const year = now.getFullYear()
+  const pad = (n: number) => String(n).padStart(2, '0')
+
+  let dateFilter: string
+  let groupBy: string
+  let allSlots: string[]
+
+  if (period === 'month') {
+    const m = now.getMonth() + 1
+    const daysInMonth = new Date(year, m, 0).getDate()
+    const monthPrefix = `${year}-${pad(m)}`
+    groupBy = "date(v.visit_date)"
+    dateFilter = `AND strftime('%Y-%m', v.visit_date) = '${monthPrefix}'`
+    allSlots = Array.from({ length: daysInMonth }, (_, i) => `${monthPrefix}-${pad(i + 1)}`)
+  } else {
+    groupBy = "strftime('%Y-%m', v.visit_date)"
+    dateFilter = `AND strftime('%Y', v.visit_date) = '${year}'`
+    allSlots = Array.from({ length: 12 }, (_, i) => `${year}-${pad(i + 1)}`)
+  }
+
+  // Get all stores
+  const stores = await c.env.DB.prepare(
+    'SELECT id, name FROM stores WHERE admin_id = ? ORDER BY created_at ASC',
+  ).bind(adminId).all<{ id: string; name: string }>()
+
+  // Get visit counts grouped by store + time slot
+  const rows = await c.env.DB.prepare(`
+    SELECT v.store_id, ${groupBy} as label, COUNT(*) as total
+    FROM visits v JOIN stores s ON v.store_id = s.id
+    WHERE s.admin_id = ? ${dateFilter}
+    GROUP BY v.store_id, label ORDER BY label ASC
+  `).bind(adminId).all<{ store_id: string; label: string; total: number }>()
+
+  // Build per-store data with all slots filled
+  const dataMap = new Map<string, Map<string, number>>()
+  for (const r of rows.results || []) {
+    if (!dataMap.has(r.store_id)) dataMap.set(r.store_id, new Map())
+    dataMap.get(r.store_id)!.set(r.label, r.total)
+  }
+
+  const storeList = (stores.results || []).map((s) => {
+    const storeData = dataMap.get(s.id) ?? new Map()
+    return {
+      storeId: s.id,
+      storeName: s.name,
+      data: allSlots.map((slot) => ({ label: slot, total: storeData.get(slot) ?? 0 })),
+    }
+  })
+
+  return c.json({ stores: storeList, slots: allSlots })
+})
+
+// --- GET /admin/analytics/customers-overview ---
+// Total customers, new this month, cross-store customers, monthly new customer trend
+admin.get('/analytics/customers-overview', async (c) => {
+  const { adminId } = c.get('admin')
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth() + 1
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const monthPrefix = `${year}-${pad(month)}`
+
+  // Total unique customers across admin's stores
+  const totalResult = await c.env.DB.prepare(`
+    SELECT COUNT(DISTINCT v.customer_id) as total
+    FROM visits v JOIN stores s ON v.store_id = s.id WHERE s.admin_id = ?
+  `).bind(adminId).first<{ total: number }>()
+
+  // New customers this month
+  const newResult = await c.env.DB.prepare(`
+    SELECT COUNT(*) as cnt FROM customers
+    WHERE strftime('%Y-%m', created_at) = ? AND id IN (
+      SELECT DISTINCT v.customer_id FROM visits v JOIN stores s ON v.store_id = s.id WHERE s.admin_id = ?
+    )
+  `).bind(monthPrefix, adminId).first<{ cnt: number }>()
+
+  // Cross-store customers (visited 2+ stores)
+  const crossResult = await c.env.DB.prepare(`
+    SELECT COUNT(*) as cnt FROM (
+      SELECT v.customer_id FROM visits v JOIN stores s ON v.store_id = s.id
+      WHERE s.admin_id = ? GROUP BY v.customer_id HAVING COUNT(DISTINCT v.store_id) >= 2
+    )
+  `).bind(adminId).first<{ cnt: number }>()
+
+  // Monthly new customer trend (this year)
+  const trendRows = await c.env.DB.prepare(`
+    SELECT strftime('%Y-%m', c.created_at) as month, COUNT(*) as cnt
+    FROM customers c
+    WHERE strftime('%Y', c.created_at) = ? AND c.id IN (
+      SELECT DISTINCT v.customer_id FROM visits v JOIN stores s ON v.store_id = s.id WHERE s.admin_id = ?
+    )
+    GROUP BY month ORDER BY month ASC
+  `).bind(String(year), adminId).all<{ month: string; cnt: number }>()
+
+  const trendMap = new Map((trendRows.results || []).map((r) => [r.month, r.cnt]))
+  const newCustomerTrend = Array.from({ length: 12 }, (_, i) => {
+    const m = `${year}-${pad(i + 1)}`
+    return { month: m, count: trendMap.get(m) ?? 0 }
+  })
+
+  const totalCustomers = totalResult?.total ?? 0
+  const crossStore = crossResult?.cnt ?? 0
+
+  return c.json({
+    totalCustomers,
+    newThisMonth: newResult?.cnt ?? 0,
+    crossStoreCustomers: crossStore,
+    crossStoreRate: totalCustomers > 0 ? Math.round((crossStore / totalCustomers) * 1000) / 10 : 0,
+    newCustomerTrend,
+  })
+})
+
+// --- GET /admin/analytics/points-overview ---
+// Loyalty points system overview across all stores
+admin.get('/analytics/points-overview', async (c) => {
+  const { adminId } = c.get('admin')
+  const now = new Date()
+  const year = now.getFullYear()
+  const pad = (n: number) => String(n).padStart(2, '0')
+
+  // Total points issued (completed visits) and redeemed this year
+  const stats = await c.env.DB.prepare(`
+    SELECT
+      SUM(CASE WHEN v.therapist_signed_at IS NOT NULL THEN 1 ELSE 0 END) as totalIssued,
+      SUM(CASE WHEN v.points_redeemed > 0 THEN 1 ELSE 0 END) as totalRedeemed
+    FROM visits v JOIN stores s ON v.store_id = s.id
+    WHERE s.admin_id = ? AND strftime('%Y', v.visit_date) = ?
+  `).bind(adminId, String(year)).first<{ totalIssued: number; totalRedeemed: number }>()
+
+  // Per-store redemption
+  const storeRedeemed = await c.env.DB.prepare(`
+    SELECT s.name, SUM(CASE WHEN v.points_redeemed > 0 THEN 1 ELSE 0 END) as redeemed
+    FROM visits v JOIN stores s ON v.store_id = s.id
+    WHERE s.admin_id = ? AND strftime('%Y', v.visit_date) = ?
+    GROUP BY s.id ORDER BY redeemed DESC
+  `).bind(adminId, String(year)).all<{ name: string; redeemed: number }>()
+
+  // Monthly redemption trend
+  const monthlyRows = await c.env.DB.prepare(`
+    SELECT strftime('%Y-%m', v.visit_date) as month,
+           SUM(CASE WHEN v.points_redeemed > 0 THEN 1 ELSE 0 END) as redeemed
+    FROM visits v JOIN stores s ON v.store_id = s.id
+    WHERE s.admin_id = ? AND strftime('%Y', v.visit_date) = ?
+    GROUP BY month ORDER BY month ASC
+  `).bind(adminId, String(year)).all<{ month: string; redeemed: number }>()
+
+  const monthMap = new Map((monthlyRows.results || []).map((r) => [r.month, r.redeemed]))
+  const redemptionByMonth = Array.from({ length: 12 }, (_, i) => {
+    const m = `${year}-${pad(i + 1)}`
+    const count = monthMap.get(m) ?? 0
+    return { month: m, count, amount: count * 50 }
+  })
+
+  return c.json({
+    totalIssued: stats?.totalIssued ?? 0,
+    totalRedeemed: stats?.totalRedeemed ?? 0,
+    totalRedeemedAmount: (stats?.totalRedeemed ?? 0) * 50,
+    storeRedemptions: (storeRedeemed.results || []).map((r) => ({
+      name: r.name, count: r.redeemed, amount: r.redeemed * 50,
+    })),
+    redemptionByMonth,
+  })
+})
+
+// --- GET /admin/analytics/service-overview ---
+// Global F/B/C breakdown + per-store cancellation rates
+admin.get('/analytics/service-overview', async (c) => {
+  const { adminId } = c.get('admin')
+  const now = new Date()
+  const year = String(now.getFullYear())
+
+  // Global F/B/C
+  const fbc = await c.env.DB.prepare(`
+    SELECT
+      SUM(CASE WHEN UPPER(SUBSTR(TRIM(v.therapist_service_technique), 1, 1)) = 'F' THEN 1 ELSE 0 END) as foot,
+      SUM(CASE WHEN UPPER(SUBSTR(TRIM(v.therapist_service_technique), 1, 1)) = 'B' THEN 1 ELSE 0 END) as body,
+      SUM(CASE WHEN UPPER(SUBSTR(TRIM(v.therapist_service_technique), 1, 1)) = 'C' THEN 1 ELSE 0 END) as combo,
+      COUNT(*) as total
+    FROM visits v JOIN stores s ON v.store_id = s.id
+    WHERE s.admin_id = ? AND v.therapist_signed_at IS NOT NULL AND strftime('%Y', v.visit_date) = ?
+  `).bind(adminId, year).first<{ foot: number; body: number; combo: number; total: number }>()
+
+  // Per-store cancellation rates
+  const cancelRows = await c.env.DB.prepare(`
+    SELECT s.name,
+           COUNT(*) as total,
+           SUM(CASE WHEN v.cancelled_at IS NOT NULL THEN 1 ELSE 0 END) as cancelled
+    FROM visits v JOIN stores s ON v.store_id = s.id
+    WHERE s.admin_id = ? AND strftime('%Y', v.visit_date) = ?
+    GROUP BY s.id ORDER BY s.name ASC
+  `).bind(adminId, year).all<{ name: string; total: number; cancelled: number }>()
+
+  return c.json({
+    serviceBreakdown: {
+      foot: fbc?.foot ?? 0, body: fbc?.body ?? 0, combo: fbc?.combo ?? 0, total: fbc?.total ?? 0,
+    },
+    storeCancellationRates: (cancelRows.results || []).map((r) => ({
+      name: r.name, total: r.total, cancelled: r.cancelled,
+      rate: r.total > 0 ? Math.round((r.cancelled / r.total) * 1000) / 10 : 0,
+    })),
+  })
+})
+
+// --- GET /admin/analytics/top-customers ---
+// Top 5 most frequent customers this year (account-level, all stores)
+admin.get('/analytics/top-customers', async (c) => {
+  const { adminId } = c.get('admin')
+  const year = String(new Date().getFullYear())
+
+  const rows = await c.env.DB.prepare(`
+    SELECT c.id, c.first_name, c.last_name, c.phone,
+           COUNT(*) as visit_count,
+           SUM(CASE WHEN UPPER(SUBSTR(TRIM(v.therapist_service_technique), 1, 1)) = 'F' THEN 1 ELSE 0 END) as foot,
+           SUM(CASE WHEN UPPER(SUBSTR(TRIM(v.therapist_service_technique), 1, 1)) = 'B' THEN 1 ELSE 0 END) as body,
+           SUM(CASE WHEN UPPER(SUBSTR(TRIM(v.therapist_service_technique), 1, 1)) = 'C' THEN 1 ELSE 0 END) as combo
+    FROM visits v
+    JOIN customers c ON v.customer_id = c.id
+    JOIN stores s ON v.store_id = s.id
+    WHERE s.admin_id = ? AND v.therapist_signed_at IS NOT NULL AND strftime('%Y', v.visit_date) = ?
+    GROUP BY c.id ORDER BY visit_count DESC LIMIT 5
+  `).bind(adminId, year).all<{
+    id: string; first_name: string; last_name: string; phone: string;
+    visit_count: number; foot: number; body: number; combo: number
+  }>()
+
+  // Per-store breakdown for each top customer
+  const topIds = (rows.results || []).map((r) => r.id)
+  let storeBreakdowns: Record<string, { storeName: string; count: number }[]> = {}
+  if (topIds.length > 0) {
+    const placeholders = topIds.map(() => '?').join(',')
+    const storeRows = await c.env.DB.prepare(`
+      SELECT v.customer_id, s.name as store_name, COUNT(*) as cnt
+      FROM visits v JOIN stores s ON v.store_id = s.id
+      WHERE s.admin_id = ? AND v.therapist_signed_at IS NOT NULL
+        AND strftime('%Y', v.visit_date) = ? AND v.customer_id IN (${placeholders})
+      GROUP BY v.customer_id, s.id ORDER BY cnt DESC
+    `).bind(adminId, year, ...topIds).all<{ customer_id: string; store_name: string; cnt: number }>()
+
+    for (const r of storeRows.results || []) {
+      if (!storeBreakdowns[r.customer_id]) storeBreakdowns[r.customer_id] = []
+      storeBreakdowns[r.customer_id].push({ storeName: r.store_name, count: r.cnt })
+    }
+  }
+
+  return c.json({
+    customers: (rows.results || []).map((r) => ({
+      id: r.id, name: `${r.first_name} ${r.last_name}`, phone: r.phone,
+      visitCount: r.visit_count, foot: r.foot, body: r.body, combo: r.combo,
+      storeBreakdown: storeBreakdowns[r.id] ?? [],
+    })),
+  })
 })
 
 export default admin

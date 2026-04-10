@@ -146,7 +146,7 @@ export default function StaffMain() {
           <div className="flex items-center gap-2" style={{ width: 232 + 8 + 120 }}>
             <div className="h-12 bg-white border border-gray-200 rounded-lg flex items-center justify-center text-xl font-mono text-gray-900 tracking-wider" style={{ width: 232 }}>
               {phoneDigits || (
-                <span className="text-gray-300">{t('staff.enterPhone')}</span>
+                <span className="text-gray-300 text-sm">{t('staff.enterPhone')}</span>
               )}
             </div>
             <button

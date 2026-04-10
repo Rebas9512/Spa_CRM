@@ -17,6 +17,8 @@ interface CustomerProfileData {
   address: string | null
   dateOfBirth: string | null
   staffNotes: string
+  loyaltyPoints: number
+  loyaltyImportedAt: string | null
   healthAlerts: HealthAlerts
   visits: VisitRecord[]
 }
@@ -32,6 +34,9 @@ export default function CustomerProfile() {
 
   const [editingNotes, setEditingNotes] = useState(false)
   const [notesValue, setNotesValue] = useState('')
+  const [showImport, setShowImport] = useState(false)
+  const [importValue, setImportValue] = useState('')
+  const [importError, setImportError] = useState('')
 
   const { data: customer, isLoading, isError } = useQuery({
     queryKey: ['customer-profile', id],
@@ -63,6 +68,23 @@ export default function CustomerProfile() {
       queryClient.invalidateQueries({
         queryKey: ['customer-profile', id],
       })
+    },
+  })
+
+  const importMutation = useMutation({
+    mutationFn: (points: number) =>
+      apiFetch(`/api/customers/${id}/import-points`, {
+        method: 'POST',
+        body: JSON.stringify({ points }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customer-profile', id] })
+      setShowImport(false)
+      setImportValue('')
+      setImportError('')
+    },
+    onError: () => {
+      setImportError(t('profile.alreadyImported'))
     },
   })
 
@@ -133,7 +155,57 @@ export default function CustomerProfile() {
               <span className="text-xs text-gray-400">{t('profile.dob')}</span>
               <p className="text-gray-900">{customer.dateOfBirth ?? '-'}</p>
             </div>
+            <div>
+              <span className="text-xs text-gray-400">{t('profile.loyaltyPoints')}</span>
+              <div className="flex items-center gap-2">
+                <p className={`font-medium ${customer.loyaltyPoints >= 10 ? 'text-amber-600' : 'text-gray-900'}`}>
+                  {customer.loyaltyPoints}
+                </p>
+                {!customer.loyaltyImportedAt && !showImport && (
+                  <button
+                    onClick={() => setShowImport(true)}
+                    className="text-xs text-[#0F766E] font-medium hover:underline"
+                  >
+                    {t('profile.importPoints')}
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
+          {showImport && (
+            <div className="mt-3 p-3 bg-gray-50 rounded-lg flex flex-col gap-2">
+              <p className="text-xs text-gray-500">{t('profile.importPointsDesc')}</p>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={importValue}
+                  onChange={(e) => { setImportValue(e.target.value); setImportError('') }}
+                  placeholder={t('profile.importPointsPlaceholder')}
+                  className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0F766E]"
+                />
+                <button
+                  onClick={() => {
+                    const pts = parseInt(importValue, 10)
+                    if (!pts || pts < 1) return
+                    importMutation.mutate(pts)
+                  }}
+                  disabled={importMutation.isPending}
+                  className="px-3 py-2 bg-[#0F766E] text-white text-sm font-medium rounded-lg disabled:opacity-50"
+                >
+                  {importMutation.isPending ? t('common.saving') : t('common.save')}
+                </button>
+                <button
+                  onClick={() => { setShowImport(false); setImportValue(''); setImportError('') }}
+                  className="px-3 py-2 text-gray-600 text-sm font-medium"
+                >
+                  {t('common.cancel')}
+                </button>
+              </div>
+              {importError && <p className="text-red-500 text-xs">{importError}</p>}
+            </div>
+          )}
         </div>
 
         {/* Health Badges */}

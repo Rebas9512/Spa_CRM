@@ -7,11 +7,10 @@ interface StoreCardProps {
     address?: string | null
     visitsToday: number
   }
-  onManage: () => void
   onEnter: () => void
 }
 
-export default function StoreCard({ store, onManage, onEnter }: StoreCardProps) {
+export default function StoreCard({ store, onEnter }: StoreCardProps) {
   const { t } = useTranslation()
 
   return (
@@ -35,12 +34,6 @@ export default function StoreCard({ store, onManage, onEnter }: StoreCardProps) 
           className="px-4 py-2 bg-[#0F766E] hover:bg-[#0d6b63] text-white text-sm font-semibold rounded-lg transition-colors"
         >
           {t('admin.enterStore')} &rarr;
-        </button>
-        <button
-          onClick={onManage}
-          className="text-[#0F766E] font-semibold text-sm hover:underline"
-        >
-          {t('admin.manageStore')}
         </button>
       </div>
     </div>

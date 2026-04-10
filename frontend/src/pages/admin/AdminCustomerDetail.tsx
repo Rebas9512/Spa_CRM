@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '../../lib/apiClient'
 import { useTranslation } from '../../i18n'
@@ -29,6 +29,8 @@ interface CustomerData {
   emergencyContactName: string | null
   emergencyContactPhone: string | null
   staffNotes: string | null
+  loyaltyPoints: number
+  loyaltyImportedAt: string | null
   createdAt: string
   updatedAt: string
 }
@@ -52,7 +54,10 @@ interface VisitApiRecord {
   serviceType: string | null
   therapistName: string | null
   storeName: string | null
+  therapistServiceTechnique: string | null
   therapistSignedAt: string | null
+  pointsRedeemed: number
+  pointsAfter: number | null
   cancelledAt: string | null
 }
 
@@ -70,9 +75,12 @@ function toVisitRecords(visits: VisitApiRecord[]): VisitRecord[] {
     id: v.id,
     visitDate: v.visitDate,
     serviceType: v.serviceType,
+    therapistServiceTechnique: v.therapistServiceTechnique,
     therapistName: v.therapistName,
     storeName: v.storeName,
     therapistSignedAt: v.therapistSignedAt,
+    pointsRedeemed: v.pointsRedeemed ?? 0,
+    pointsAfter: v.pointsAfter ?? null,
     cancelledAt: v.cancelledAt,
   }))
 }
@@ -83,30 +91,24 @@ function toVisitRecords(visits: VisitApiRecord[]): VisitRecord[] {
 export default function AdminCustomerDetail() {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const location = useLocation()
   const queryClient = useQueryClient()
 
-  // Determine context from route
-  const isAdminRoute = location.pathname.startsWith('/admin/')
-  const params = useParams<{
-    id: string
-    cid: string
-    storeId: string
-  }>()
-  const customerId = isAdminRoute ? params.cid : params.id
+  const params = useParams<{ id: string; storeId: string }>()
+  const customerId = params.id
 
   // Notes editing state
   const [editingNotes, setEditingNotes] = useState(false)
   const [notesValue, setNotesValue] = useState('')
-
-  // API base — admin routes use /api/admin prefix, store routes use /api
-  const apiPrefix = isAdminRoute ? '/api/admin' : '/api'
+  const [showModifyPoints, setShowModifyPoints] = useState(false)
+  const [modifyPointsValue, setModifyPointsValue] = useState('')
+  const [modifyPin, setModifyPin] = useState('')
+  const [modifyError, setModifyError] = useState('')
 
   // ---- Queries ----
   const customerQuery = useQuery({
     queryKey: ['admin-customer', customerId],
     queryFn: () =>
-      apiFetch<{ customer: CustomerData }>(`${apiPrefix}/customers/${customerId}`),
+      apiFetch<{ customer: CustomerData }>(`/api/manage/customers/${customerId}`),
     enabled: !!customerId,
   })
 
@@ -114,7 +116,7 @@ export default function AdminCustomerDetail() {
     queryKey: ['admin-customer-intake', customerId],
     queryFn: () =>
       apiFetch<{ intakeForm: IntakeFormResponse }>(
-        `${apiPrefix}/customers/${customerId}/intake`,
+        `/api/manage/customers/${customerId}/intake`,
       ).catch(() => null),
     enabled: !!customerId,
   })
@@ -123,7 +125,7 @@ export default function AdminCustomerDetail() {
     queryKey: ['admin-customer-visits', customerId],
     queryFn: () =>
       apiFetch<{ visits: VisitApiRecord[] }>(
-        `${apiPrefix}/customers/${customerId}/visits`,
+        `/api/manage/customers/${customerId}/visits`,
       ),
     enabled: !!customerId,
   })
@@ -131,7 +133,7 @@ export default function AdminCustomerDetail() {
   // ---- Mutations ----
   const notesMutation = useMutation({
     mutationFn: (notes: string) =>
-      apiFetch(`${apiPrefix}/customers/${customerId}/notes`, {
+      apiFetch(`/api/manage/customers/${customerId}/notes`, {
         method: 'PATCH',
         body: JSON.stringify({ staffNotes: notes }),
       }),
@@ -140,6 +142,26 @@ export default function AdminCustomerDetail() {
         queryKey: ['admin-customer', customerId],
       })
       setEditingNotes(false)
+    },
+  })
+
+  const modifyPointsMutation = useMutation({
+    mutationFn: (data: { loyaltyPoints: number; pin: string }) =>
+      apiFetch<{ loyaltyPoints: number }>(`/api/manage/customers/${customerId}/loyalty-points`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-customer', customerId] })
+      setShowModifyPoints(false)
+      setModifyPointsValue('')
+      setModifyPin('')
+      setModifyError('')
+    },
+    onError: (err: Error) => {
+      setModifyError(err.message?.includes('PIN')
+        ? t('profile.pinIncorrect')
+        : t('common.saveFailed'))
     },
   })
 
@@ -360,8 +382,72 @@ export default function AdminCustomerDetail() {
                     : null
                 }
               />
+              <div className="flex items-center justify-between py-1">
+                <div>
+                  <span className="text-xs text-[#6B7280]">{t('profile.loyaltyPoints')}</span>
+                  <p className={`text-sm font-medium ${(customer.loyaltyPoints ?? 0) >= 10 ? 'text-amber-600' : 'text-[#0D0D0D]'}`}>
+                    {customer.loyaltyPoints ?? 0}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setModifyPointsValue(String(customer.loyaltyPoints ?? 0))
+                    setShowModifyPoints(true)
+                    setModifyError('')
+                  }}
+                  className="text-xs text-[#0F766E] font-medium hover:underline"
+                >
+                  {t('profile.modifyPoints')}
+                </button>
+              </div>
             </div>
           </div>
+
+          {/* Modify Points Modal */}
+          {showModifyPoints && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-xl p-6 mx-4 max-w-sm w-full space-y-4">
+                <h3 className="text-lg font-semibold text-gray-900">{t('profile.modifyPoints')}</h3>
+                <p className="text-sm text-gray-500">{t('profile.modifyPointsDesc')}</p>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={modifyPointsValue}
+                  onChange={(e) => { setModifyPointsValue(e.target.value); setModifyError('') }}
+                  placeholder={t('profile.loyaltyPoints')}
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0F766E]"
+                />
+                <input
+                  type="password"
+                  value={modifyPin}
+                  onChange={(e) => { setModifyPin(e.target.value); setModifyError('') }}
+                  placeholder={t('profile.pinPlaceholder')}
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0F766E]"
+                />
+                {modifyError && <p className="text-red-500 text-sm">{modifyError}</p>}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => { setShowModifyPoints(false); setModifyPin(''); setModifyError('') }}
+                    className="flex-1 py-2.5 border border-gray-200 rounded-lg text-gray-700 font-medium text-sm"
+                  >
+                    {t('common.cancel')}
+                  </button>
+                  <button
+                    onClick={() => {
+                      const pts = parseInt(modifyPointsValue, 10)
+                      if (isNaN(pts) || pts < 0 || !modifyPin) return
+                      modifyPointsMutation.mutate({ loyaltyPoints: pts, pin: modifyPin })
+                    }}
+                    disabled={modifyPointsMutation.isPending}
+                    className="flex-1 py-2.5 bg-[#0F766E] text-white rounded-lg font-medium text-sm disabled:opacity-50"
+                  >
+                    {modifyPointsMutation.isPending ? t('common.saving') : t('common.save')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Card 2: Staff Notes */}
           <div className="bg-[#FAFAFA] border border-gray-200 rounded-xl p-4 flex flex-col gap-2">

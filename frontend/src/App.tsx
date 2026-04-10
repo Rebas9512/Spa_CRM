@@ -51,7 +51,8 @@ const AdminRegister = lazyPage(() => import('./pages/public/AdminRegister'))
 // Admin — guarded
 const AdminDashboard = lazyPage(() => import('./pages/admin/AdminDashboard'))
 const StoreCreate = lazyPage(() => import('./pages/admin/StoreCreate'))
-const StoreManage = lazyPage(() => import('./pages/admin/StoreManage'))
+// StoreManage removed — management is via /s/:storeId/manage (StoreManagePage)
+const AccountAnalytics = lazyPage(() => import('./pages/admin/AccountAnalytics'))
 const AccountSettings = lazyPage(() => import('./pages/admin/AccountSettings'))
 const GeneralSettings = lazyPage(() => import('./pages/admin/GeneralSettings'))
 const AdminCustomerDetail = lazyPage(() => import('./pages/admin/AdminCustomerDetail'))
@@ -235,18 +236,10 @@ const router = createBrowserRouter([
     ),
   },
   {
-    path: '/admin/stores/:id',
+    path: '/admin/analytics',
     element: (
       <AdminGuard>
-        <Lazy><StoreManage /></Lazy>
-      </AdminGuard>
-    ),
-  },
-  {
-    path: '/admin/stores/:id/customers/:cid',
-    element: (
-      <AdminGuard>
-        <Lazy><AdminCustomerDetail /></Lazy>
+        <Lazy><AccountAnalytics /></Lazy>
       </AdminGuard>
     ),
   },
@@ -277,7 +270,26 @@ const router = createBrowserRouter([
 // ---------------------------------------------------------------------------
 // App
 // ---------------------------------------------------------------------------
+// Maintenance mode — set VITE_MAINTENANCE=true to enable
+const MAINTENANCE = import.meta.env.VITE_MAINTENANCE === 'true'
+
+function MaintenancePage() {
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center font-['Inter',sans-serif]">
+      <div className="text-center space-y-4 px-6">
+        <div className="text-5xl">🔧</div>
+        <h1 className="text-2xl font-bold text-gray-900">System Maintenance</h1>
+        <p className="text-gray-500 text-sm max-w-sm">
+          We're currently updating the system to bring you new features. Please check back shortly.
+        </p>
+        <p className="text-gray-400 text-xs">系统正在维护升级中，请稍后再试</p>
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
+  if (MAINTENANCE) return <MaintenancePage />
   return (
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />

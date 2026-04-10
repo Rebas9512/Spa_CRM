@@ -4,6 +4,8 @@ import { apiFetch } from '../../lib/apiClient'
 import { useAppStore } from '../../store/appStore'
 import { useTranslation } from '../../i18n'
 import AdminTable from '../../components/AdminTable'
+import StoreAnalytics from '../../components/StoreAnalytics'
+import { normalizeTechnique } from '../../components/VisitHistory'
 import CsvExportButton from '../../components/CsvExportButton'
 
 // ---------------------------------------------------------------------------
@@ -25,8 +27,11 @@ interface Visit {
   customerName: string
   phone: string
   serviceType: string | null
+  therapistServiceTechnique: string | null
   therapistName: string | null
   therapistSignedAt: string | null
+  pointsRedeemed: number
+  pointsAfter: number | null
   cancelledAt: string | null
   storeName: string | null
 }
@@ -38,7 +43,7 @@ interface StoreInfo {
   phone: string | null
 }
 
-type Tab = 'customers' | 'visits' | 'export' | 'settings' | 'store-settings'
+type Tab = 'customers' | 'visits' | 'analytics' | 'export' | 'settings' | 'store-settings'
 
 const LANGUAGE_OPTIONS = [
   { value: 'en', label: 'English' },
@@ -107,6 +112,7 @@ export default function StoreManagePage() {
   const [staffPin, setStaffPin] = useState('')
   const [adminPin, setAdminPin] = useState('')
   const [pinError, setPinError] = useState('')
+  const [storeSaved, setStoreSaved] = useState(false)
 
   useEffect(() => {
     if (!adminSession || !storeId) return
@@ -133,6 +139,8 @@ export default function StoreManagePage() {
       setStoreInfo((prev) =>
         prev ? { ...prev, name: settingsName, address: settingsAddress, phone: settingsPhone } : prev,
       )
+      setStoreSaved(true)
+      setTimeout(() => setStoreSaved(false), 3000)
     } finally {
       setSettingsSaving(false)
     }
@@ -213,6 +221,7 @@ export default function StoreManagePage() {
   const tabs: { key: Tab; label: string }[] = [
     { key: 'customers', label: t('nav.customers') },
     { key: 'visits', label: t('admin.visits') },
+    { key: 'analytics', label: t('analytics.title') },
     { key: 'export', label: t('admin.export') },
     { key: 'settings', label: t('header.generalSettings') },
     ...(adminSession ? [{ key: 'store-settings' as Tab, label: t('admin.storeInfo') }] : []),
@@ -301,8 +310,23 @@ export default function StoreManagePage() {
               { key: 'visitDate', label: t('table.date') },
               { key: 'customerName', label: t('table.customer') },
               { key: 'storeName', label: t('visit.location') },
-              { key: 'serviceType', label: t('table.service') },
+              { key: 'serviceType', label: t('table.service'), render: (v) => {
+                const visit = v as unknown as Visit
+                return visit.cancelledAt ? '-' : normalizeTechnique(visit.therapistServiceTechnique)
+              }},
               { key: 'therapistName', label: t('table.therapist') },
+              { key: 'pointsRedeemed', label: t('visit.pointsRedeemed'), render: (v) => {
+                const visit = v as unknown as Visit
+                if (visit.cancelledAt || !visit.therapistSignedAt) return '-'
+                return visit.pointsRedeemed > 0
+                  ? <span className="text-amber-600 font-medium">{t('common.yes')}</span>
+                  : t('common.no')
+              }},
+              { key: 'pointsAfter', label: t('visit.pointsAfter'), render: (v) => {
+                const visit = v as unknown as Visit
+                if (visit.cancelledAt || !visit.therapistSignedAt) return '-'
+                return visit.pointsAfter != null ? String(visit.pointsAfter) : '-'
+              }},
               {
                 key: 'status',
                 label: t('table.status'),
@@ -331,6 +355,9 @@ export default function StoreManagePage() {
             isLoading={visitLoading}
           />
         )}
+
+        {/* Analytics */}
+        {tab === 'analytics' && <StoreAnalytics />}
 
         {/* Export */}
         {tab === 'export' && (
@@ -421,7 +448,7 @@ export default function StoreManagePage() {
               onClick={() => {
                 localStorage.setItem('spa-crm-general-settings', JSON.stringify(generalSettings))
                 setSettingsSaved(true)
-                window.location.reload()
+                setTimeout(() => setSettingsSaved(false), 3000)
               }}
               className="w-full h-11 mt-4 bg-[#0F766E] active:bg-[#0d6b63] text-white text-[15px] font-semibold rounded-lg transition-colors"
             >
@@ -563,6 +590,9 @@ export default function StoreManagePage() {
             >
               {settingsSaving ? t('common.saving') : t('admin.saveChanges')}
             </button>
+            {storeSaved && (
+              <p className="text-green-600 text-sm mt-3">{t('admin.saveSuccess')}</p>
+            )}
           </div>
         )}
       </div>

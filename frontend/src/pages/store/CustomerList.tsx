@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '../../lib/apiClient'
@@ -18,37 +18,60 @@ export default function CustomerList() {
     isRecent: boolean
   }
 
-  const { data: customers = [], isLoading } = useQuery({
+  type ApiCustomer = {
+    id: string; firstName: string; lastName: string; phone: string;
+    lastVisitDate: string | null; lastService: string | null; lastTherapist: string | null;
+    totalVisits: number; intakeStatus: string | null; healthStatus: string;
+  }
+
+  const mapToRow = (r: ApiCustomer, isRecent: boolean): CustomerRow => ({
+    id: r.id,
+    name: `${r.firstName} ${r.lastName}`,
+    phone: r.phone,
+    lastVisit: r.lastVisitDate,
+    totalVisits: r.totalVisits,
+    healthStatus: r.healthStatus as 'ok' | 'alert',
+    lastService: r.lastService,
+    lastTherapist: r.lastTherapist,
+    lastTime: r.lastVisitDate,
+    isRecent,
+  })
+
+  const { data: recentCustomers = [], isLoading: recentLoading } = useQuery({
     queryKey: ['customers-recent', storeId],
     queryFn: async () => {
-      const res = await apiFetch<{ customers: Array<{
-        id: string; firstName: string; lastName: string; phone: string;
-        lastVisitDate: string | null; lastService: string | null; lastTherapist: string | null;
-        totalVisits: number; intakeStatus: string | null; healthStatus: string;
-      }> }>(`/api/customers/recent?limit=20`)
-      return res.customers.map((r): CustomerRow => ({
-        id: r.id,
-        name: `${r.firstName} ${r.lastName}`,
-        phone: r.phone,
-        lastVisit: r.lastVisitDate,
-        totalVisits: r.totalVisits,
-        healthStatus: r.healthStatus as 'ok' | 'alert',
-        lastService: r.lastService,
-        lastTherapist: r.lastTherapist,
-        lastTime: r.lastVisitDate,
-        isRecent: true,
-      }))
+      const res = await apiFetch<{ customers: ApiCustomer[] }>(`/api/customers/recent?limit=20`)
+      return res.customers.map((r) => mapToRow(r, true))
     },
     enabled: !!storeId,
   })
 
-  const filtered = search
-    ? customers.filter(
-        (c) =>
-          c.name.toLowerCase().includes(search.toLowerCase()) ||
-          c.phone.includes(search),
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current) }
+  }, [])
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value)
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+    searchTimerRef.current = setTimeout(() => setDebouncedSearch(value.trim()), 300)
+  }
+
+  const { data: searchResults = [], isLoading: searchLoading } = useQuery({
+    queryKey: ['customers-lookup', debouncedSearch],
+    queryFn: async () => {
+      const res = await apiFetch<{ customers: ApiCustomer[] }>(
+        `/api/customers/lookup?q=${encodeURIComponent(debouncedSearch)}`,
       )
-    : customers
+      return res.customers.map((r) => mapToRow(r, false))
+    },
+    enabled: debouncedSearch.length >= 1,
+  })
+
+  const isLoading = debouncedSearch ? searchLoading : recentLoading
+  const filtered = debouncedSearch ? searchResults : recentCustomers
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-['Inter',sans-serif]">
@@ -70,7 +93,7 @@ export default function CustomerList() {
         <input
           type="text"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => handleSearchChange(e.target.value)}
           placeholder={t('customers.searchPlaceholder')}
           className="w-full max-w-md px-4 py-2.5 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0F766E]"
         />
