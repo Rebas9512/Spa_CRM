@@ -24,5 +24,8 @@ Thumbs.db
 *.pen
 DESIGN.md
 
+## Client documents
+Form/
+
 ## Internal dev/test scripts
 ci/
