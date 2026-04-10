@@ -112,8 +112,8 @@ function validateStep1(p: PersonalInfo): Record<string, boolean> {
     phone: p.phone.replace(/\D/g, '').length < 10,
     dateOfBirth: p.dateOfBirth.trim().length === 0,
     gender: p.gender.trim().length === 0,
-    emergencyContactName: p.emergencyContactName.trim().length === 0,
-    emergencyContactPhone: p.emergencyContactPhone.replace(/\D/g, '').length < 10,
+    emergencyContactName: false,
+    emergencyContactPhone: false,
   }
 }
 
@@ -425,7 +425,7 @@ export default function IntakeForm() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className={labelCls}>
-                  Emergency Contact Name <span className="text-red-500">*</span>
+                  Emergency Contact Name
                 </label>
                 <input
                   className={inputCls('emergencyContactName')}
@@ -436,7 +436,7 @@ export default function IntakeForm() {
               </div>
               <div>
                 <label className={labelCls}>
-                  Emergency Contact Phone <span className="text-red-500">*</span>
+                  Emergency Contact Phone
                 </label>
                 <input
                   className={inputCls('emergencyContactPhone')}

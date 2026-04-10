@@ -66,8 +66,8 @@ export const createCustomerSchema = z.object({
   address: z.string().optional(),
   dateOfBirth: z.string().min(1),
   gender: z.enum(genderValues),
-  emergencyContactName: z.string().min(1),
-  emergencyContactPhone: z.string().min(1),
+  emergencyContactName: z.string().optional().or(z.literal('')),
+  emergencyContactPhone: z.string().optional().or(z.literal('')),
   intakeFormData: intakeFormDataSchema,
   firstVisit: z.object({
     serviceType: z.enum(massageTypeValues),

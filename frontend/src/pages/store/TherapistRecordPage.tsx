@@ -35,6 +35,7 @@ export default function TherapistRecordPage() {
   const [technique, setTechnique] = useState('')
   const [bodyParts, setBodyParts] = useState('')
   const [validationError, setValidationError] = useState('')
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
 
   const { data: visit, isError } = useQuery({
     queryKey: ['visit-detail', id],
@@ -59,20 +60,23 @@ export default function TherapistRecordPage() {
         },
       )
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       // Invalidate queue cache so it refetches fresh data
       queryClient.invalidateQueries({ queryKey: ['pending-therapist-list'] })
       queryClient.invalidateQueries({ queryKey: ['pending-therapist'] })
-      if (data.nextPendingVisitId) {
-        navigate(
-          `/s/${storeId}/visits/${data.nextPendingVisitId}/therapist`,
-          {
-            state: { index: queueIndex + 1, total: queueTotal },
-          },
-        )
-      } else {
-        navigate(`/s/${storeId}/therapist-queue`)
-      }
+      // Always return to queue so staff can choose the next item
+      navigate(`/s/${storeId}/therapist-queue`)
+    },
+  })
+
+  const cancelMutation = useMutation({
+    mutationFn: async () => {
+      return apiFetch(`/api/visits/${id}/cancel`, { method: 'PATCH' })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pending-therapist-list'] })
+      queryClient.invalidateQueries({ queryKey: ['pending-therapist'] })
+      navigate(`/s/${storeId}/therapist-queue`)
     },
   })
 
@@ -85,7 +89,7 @@ export default function TherapistRecordPage() {
     signMutation.mutate()
   }
 
-  const isLast = !visit?.nextPendingVisitId
+  // nextPendingVisitId no longer used for navigation
 
   if (isError) {
     return (
@@ -119,14 +123,48 @@ export default function TherapistRecordPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-['Inter',sans-serif]">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-4">
+      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
         <button
           onClick={() => navigate(`/s/${storeId}/therapist-queue`)}
           className="text-[#0F766E] font-medium text-sm hover:underline"
         >
           &larr; {t('queue.title')} ({queueIndex}/{queueTotal})
         </button>
+        <button
+          onClick={() => setShowCancelConfirm(true)}
+          className="text-red-500 font-medium text-sm border border-red-300 rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors"
+        >
+          {t('visit.cancelVisit')}
+        </button>
       </header>
+
+      {/* Cancel confirmation modal */}
+      {showCancelConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 mx-4 max-w-sm w-full space-y-4">
+            <h3 className="text-lg font-semibold text-gray-900">{t('visit.confirmCancel')}</h3>
+            <p className="text-sm text-gray-600">{visit?.customerName} &middot; {visit?.serviceType ?? '-'}</p>
+            {cancelMutation.isError && (
+              <p className="text-red-500 text-sm">{t('common.saveFailed')}</p>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowCancelConfirm(false)}
+                className="flex-1 py-2.5 border border-gray-200 rounded-lg text-gray-700 font-medium text-sm"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={() => cancelMutation.mutate()}
+                disabled={cancelMutation.isPending}
+                className="flex-1 py-2.5 bg-red-500 text-white rounded-lg font-medium text-sm disabled:opacity-50"
+              >
+                {cancelMutation.isPending ? t('common.saving') : t('visit.cancelVisit')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 px-6 py-6 max-w-2xl mx-auto w-full flex flex-col gap-5">
         {/* Client Info */}
@@ -217,9 +255,7 @@ export default function TherapistRecordPage() {
         >
           {signMutation.isPending
             ? t('common.saving')
-            : isLast
-              ? t('therapist.signAndDone')
-              : t('therapist.signAndNext')}
+            : t('therapist.signAndDone')}
         </button>
       </div>
     </div>
