@@ -29,3 +29,9 @@ Form/
 
 ## Internal dev/test scripts
 ci/
+
+## Local database files
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+backend/src/db/seed.sql
