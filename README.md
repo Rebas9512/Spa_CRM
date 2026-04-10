@@ -25,7 +25,7 @@ I conducted stakeholder interviews, mapped the existing paper workflow, and iden
 
 ## Screenshots
 
-> All screenshots are from the live production system running on iPad.
+> All screenshots are captured from the live production system. The application runs on iPad in daily operations — screenshots shown here are taken from a desktop browser connected to the same production environment for higher resolution display.
 
 ### PIN-Based Authentication
 Numeric keypad optimized for iPad touch input. Staff and admin access controlled through separate PINs — no passwords on shared devices.
@@ -113,7 +113,17 @@ The system includes two levels of analytics dashboards with interactive SVG visu
 - **Store Cancellation Rates** — Side-by-side comparison for identifying operational issues
 - **Top Customers** — Switchable view: by service type or by store distribution
 
-> Sample analytics exports available in [docs/pdf_demo/](docs/pdf_demo/)
+#### Store-Level Dashboard Preview
+
+<p align="center"><img src="docs/analytics-preview/store-analytics-1.png" width="720" /></p>
+<p align="center"><img src="docs/analytics-preview/store-analytics-2.png" width="720" /></p>
+
+#### Account-Level Dashboard Preview
+
+<p align="center"><img src="docs/analytics-preview/account-analytics-1.png" width="720" /></p>
+<p align="center"><img src="docs/analytics-preview/account-analytics-2.png" width="720" /></p>
+
+> Full PDF exports available in [docs/pdf_demo/](docs/pdf_demo/)
 
 ---
 
