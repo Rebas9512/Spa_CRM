@@ -72,6 +72,11 @@ After each service, therapists sign off from a prioritized queue. Position count
 
 <p align="center"><img src="docs/screenshots/09-therapist-queue.png" width="720" /></p>
 
+### Queue Cleared State
+When all pending visits are signed, the queue shows a clean empty state — providing clear visual confirmation to staff that no services are waiting.
+
+<p align="center"><img src="docs/screenshots/10-queue-empty.png" width="720" /></p>
+
 ### Therapist Record — Health-Alert-First Design
 Health warnings displayed prominently above the signature form. Therapists record technique used and body parts treated. When client has 10+ loyalty points, a redemption toggle appears for applying the discount.
 
@@ -188,6 +193,12 @@ invite_codes
 ---
 
 ## Business Analysis Highlights
+
+### Measurable Impact
+- Reduced new-client intake from **5-10 minutes** (paper) to **<2 minutes** (digital with autosave)
+- Eliminated repeat health questionnaires for returning clients — **one-time intake** across all locations
+- Replaced physical punch cards with tracked digital loyalty system — every redemption auditable ($50/use)
+- Enabled data-driven decisions with real-time analytics — previously zero visibility into therapist utilization, service mix, or customer frequency
 
 ### Requirements Engineering
 - Conducted on-site observation of paper-based workflow at multiple spa locations
