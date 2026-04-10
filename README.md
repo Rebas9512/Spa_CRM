@@ -309,4 +309,4 @@ Zero server management. Zero monthly cost at current scale.
 
 ## License
 
-This project is proprietary software built for a specific client. Source code is shared for portfolio and educational purposes.
+Source code is shared for viewing, educational, and portfolio review purposes only. Not licensed for commercial use or redistribution. See [LICENSE](LICENSE) for details.
