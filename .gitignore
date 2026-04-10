@@ -30,6 +30,9 @@ Form/
 ## Internal dev/test scripts
 ci/
 
+## Database backups (contains production data)
+backups/
+
 ## Local database files
 *.sqlite
 *.sqlite-wal
