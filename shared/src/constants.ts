@@ -1,0 +1,41 @@
+export const MASSAGE_TYPES = [
+  { value: 'swedish_relaxation', label: 'Swedish / Relaxation' },
+  { value: 'deep_tissue', label: 'Deep Tissue' },
+  { value: 'trigger_point', label: 'Trigger Point' },
+  { value: 'pregnancy', label: 'Pregnancy' },
+  { value: 'hot_stone', label: 'Hot Stone' },
+  { value: 'other', label: 'Other' },
+] as const
+
+export const HEALTH_CONDITIONS = [
+  { key: 'hasSpinalProblems', label: 'Spinal Problems' },
+  { key: 'hasAllergies', label: 'Allergies' },
+  { key: 'hasHighBloodPressure', label: 'High Blood Pressure' },
+  { key: 'hasBruiseEasily', label: 'Bruise Easily' },
+  { key: 'hasVaricoseVeins', label: 'Varicose Veins' },
+  { key: 'hasMigraines', label: 'Migraines' },
+  { key: 'hasHeartConditions', label: 'Heart Conditions' },
+  { key: 'hasInjuries', label: 'Injuries' },
+] as const
+
+export const HIGH_RISK_CONDITIONS = [
+  'hasHighBloodPressure',
+  'isPregnant',
+  'hasHeartConditions',
+  'hasInjuries',
+  'hasVaricoseVeins',
+] as const
+
+export const GENDER_OPTIONS = [
+  { value: 'male', label: 'Male' },
+  { value: 'female', label: 'Female' },
+  { value: 'non_binary', label: 'Non-binary' },
+  { value: 'prefer_not', label: 'Prefer not to say' },
+] as const
+
+export const CONSENT_TEXT = [
+  'Massage therapy is not a substitute for medical examination or diagnosis. It is recommended that I see a physician for any physical ailment that I may have. I understand that the massage therapist does not prescribe medical treatments or pharmaceuticals and does not perform any spinal adjustments. I am aware that if I have any serious medical diagnosis, I must provide a physician\'s written consent prior to services.',
+  'The licensee shall drape the breasts of all female clients and not engage in breast massage of female clients unless the client gives written consent before each session involving breast massage.',
+  'Draping of the genital area and gluteal cleavage will be used at all times during the session for all clients.',
+  'The licensee must immediately end the massage session if a client initiates any verbal or physical contact that is sexual in nature. If the client is uncomfortable for any reason, the client may ask the licensee to end the massage, and the licensee will end the session. The licensee also has a right to end the session if uncomfortable for any reason.',
+] as const

@@ -1,0 +1,13 @@
+name = "spa-crm-api"
+main = "src/index.ts"
+compatibility_date = "2024-06-01"
+
+# JWT_SECRET is set via `wrangler secret` for production
+# For local dev, uncomment below:
+# [vars]
+# JWT_SECRET = "spa-crm-dev-secret-key-change-in-production-2026"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "spa-crm-db"
+database_id = "67d9913b-22c1-48ba-8102-e73c8a40865d"

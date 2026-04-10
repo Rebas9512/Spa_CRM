@@ -1,0 +1,24 @@
+{
+  "name": "spa-crm",
+  "private": true,
+  "workspaces": [
+    "shared",
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev:api": "cd backend && npm run dev",
+    "dev:web": "cd frontend && npm run dev",
+    "build:web": "cd frontend && npm run build",
+    "typecheck": "npm run typecheck --workspaces",
+    "test:phase1": "bash ci/phase1.test.sh"
+  },
+  "devDependencies": {
+    "better-sqlite3": "^12.8.0"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.95.2",
+    "react-router-dom": "^7.13.2",
+    "zustand": "^5.0.12"
+  }
+}

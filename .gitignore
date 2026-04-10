@@ -1,0 +1,28 @@
+## Dependencies
+node_modules/
+
+## Build output
+dist/
+*.tsbuildinfo
+
+## Cloudflare
+.wrangler/
+.dev.vars
+
+## Environment & secrets
+.env
+.env.*
+
+## OS / IDE
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
+
+## Design source files
+*.pen
+DESIGN.md
+
+## Internal dev/test scripts
+ci/
