@@ -1,4 +1,5 @@
 import { useTranslation } from '../i18n'
+import { formatLocalTime } from '../lib/timezone'
 
 export interface CustomerSummary {
   id: string
@@ -72,7 +73,7 @@ export default function CustomerCard({
       <td className="py-3 px-4 font-medium text-gray-900">{customer.name}</td>
       <td className="py-3 px-4 text-gray-600">{customer.phone}</td>
       <td className="py-3 px-4 text-gray-600">
-        {customer.lastVisit ?? t('customer.noVisits')}
+        {formatLocalTime(customer.lastVisit) === '-' ? t('customer.noVisits') : formatLocalTime(customer.lastVisit)}
       </td>
       <td className="py-3 px-4 text-gray-600 text-center">{customer.totalVisits}</td>
       <td className="py-3 px-4">{healthBadge}</td>

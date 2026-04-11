@@ -8,6 +8,7 @@ import {
   pdf,
 } from '@react-pdf/renderer'
 import { HEALTH_CONDITIONS, CONSENT_TEXT, MASSAGE_TYPES } from '@spa-crm/shared'
+import { formatLocalTime } from '../lib/timezone'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -287,7 +288,7 @@ function ConsentFormDocument({ data }: { data: ConsentPdfData }) {
         {data.clientSignedAt && (
           <View style={[styles.row, { marginTop: 8 }]}>
             <Text style={styles.label}>Signed at:</Text>
-            <Text style={styles.value}>{data.clientSignedAt}</Text>
+            <Text style={styles.value}>{formatLocalTime(data.clientSignedAt)}</Text>
           </View>
         )}
 
@@ -308,11 +309,11 @@ function ConsentFormDocument({ data }: { data: ConsentPdfData }) {
         </View>
         <View style={styles.row}>
           <Text style={styles.label}>First Submitted:</Text>
-          <Text style={styles.value}>{data.clientSignedAt ?? '-'}</Text>
+          <Text style={styles.value}>{formatLocalTime(data.clientSignedAt)}</Text>
         </View>
         <View style={styles.row}>
           <Text style={styles.label}>Last Reviewed:</Text>
-          <Text style={styles.value}>{data.lastReviewedAt ?? '-'}</Text>
+          <Text style={styles.value}>{formatLocalTime(data.lastReviewedAt)}</Text>
         </View>
         <View style={styles.row}>
           <Text style={styles.label}>Total Visits:</Text>
