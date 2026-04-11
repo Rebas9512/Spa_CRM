@@ -133,8 +133,8 @@ A digital punch card system that replaces physical loyalty cards:
 
 | Feature | Detail |
 |---------|--------|
-| **Earning** | +1 point per completed visit (auto on therapist signature) |
-| **Redemption** | 10 points = $50 discount (toggle at therapist sign-off) |
+| **Earning** | +1 point per completed visit (auto on therapist signature, not earned when redeeming) |
+| **Redemption** | 10 points = $50 discount (toggle at therapist sign-off); redemption visit does not earn a point |
 | **Cross-Store** | Points shared across all locations (tied to customer, not store) |
 | **Physical Card Import** | Staff can do a one-time import of existing punch card balances |
 | **Admin Override** | Managers can manually adjust points with admin PIN verification |

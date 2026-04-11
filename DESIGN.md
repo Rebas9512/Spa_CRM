@@ -1,8 +1,8 @@
 # 按摩店客户管理系统 — 设计概念文档
 
-> 版本：v2.0（积分系统 + 数据分析）
+> 版本：v2.1（积分系统 + 数据分析 + 时区本地化）
 > 更新日期：2026-04-10
-> 状态：生产环境运行中（spa.rebasllm.com），积分系统、数据分析面板已上线
+> 状态：生产环境运行中（spa.rebasllm.com），积分系统、数据分析面板、时区本地化已上线
 
 ---
 
@@ -1308,12 +1308,12 @@ Close Out 是**店铺级别**操作，任一设备发起，全店所有设备同
 
 ### 积分规则
 
-| 场景 | 积分变动 |
-|------|---------|
-| 技师签名完成 visit | +1 |
-| 技师签名时使用优惠 | +1 然后 -10（净 -9） |
-| visit 取消 | 无变动 |
-| 仅签到未完成 | 无变动 |
+| 场景 | 积分变动 | 说明 |
+|------|---------|------|
+| 技师签名完成 visit | +1 | 正常消费积累 |
+| 技师签名时使用优惠 | -10 | 使用优惠的消费不额外积分 |
+| visit 取消 | 无变动 | |
+| 仅签到未完成 | 无变动 | |
 
 ### 数据模型
 
@@ -1324,9 +1324,10 @@ Close Out 是**店铺级别**操作，任一设备发起，全店所有设备同
 
 ### 并发安全
 
-- 积分增减使用 SQL `CASE` 原子操作，防止并发签名导致负值
+- 积分增减使用 SQL `CASE` 原子操作：兑换时 `-10`（不加分），正常签名时 `+1`，防止并发导致负值
 - 实体卡导入使用 `WHERE loyalty_imported_at IS NULL` 原子条件防止重复导入
 - `points_after` 在 batch 操作完成后读取真实余额，确保审计准确
+- PIN 验证错误返回 403（非 401），避免触发前端 session 过期重定向
 
 ### 积分管理
 
@@ -2624,17 +2625,31 @@ const results = await c.env.DB.batch([
 
 **规则：创建店铺时读取设备当前时区写入 `stores.timezone`，后续所有时间记录以该时区为准。**
 
+**实现方案（UTC 存储 + 双端本地化）：**
+
+```
+DB 存储层：  datetime('now') → 始终 UTC
+前端显示层：  formatLocalTime() → 读取 localStorage 时区设置 → Intl.DateTimeFormat 转换
+后端分析层：  datetime(v.visit_date, '+N hours') → SQLite 偏移量转换本地时间后分组
+```
+
+**前端 `formatLocalTime()` 工具函数（`lib/timezone.ts`）：**
+- 读取 General Settings 中保存的 timezone（`localStorage: spa-crm-general-settings`）
+- 将 UTC 字符串追加 `Z` 标记后用 `Intl.DateTimeFormat` 按时区格式化
+- 支持 `datetime` / `date` / `time` 三种输出格式
+- 应用于所有日期显示点：来访记录、客户列表、技师队列、签到页、PDF 导出
+
+**后端 Analytics 时区处理：**
+- 从 `stores.timezone` 读取时区名
+- 用 JS `toLocaleString()` 计算 UTC ↔ 本地偏移小时数
+- 在 SQL 中用 `datetime(v.visit_date, '+N hours')` 将 UTC 转本地时间后做 GROUP BY
+- 确保趋势图的小时/日/周/月聚合按本地时间正确划分
+
 ```typescript
-// 创建店铺时（POST /api/admin/stores）：
-// 前端读取设备时区：Intl.DateTimeFormat().resolvedOptions().timeZone
-// 写入 stores.timezone（如 'America/Chicago'）
-
-// 所有时间记录统一策略：
-// - DB 存储：UTC（datetime('now')）
-// - 前端显示：按 store.timezone 转换显示
-// - 查询过滤：按店铺时区的日期边界转 UTC 区间
-
-// 时区确定后不再变动，确保历史数据一致性
+// 后端示例（manage.ts analytics）：
+const localVisit = `datetime(v.visit_date, '${offsetStr}')` // e.g. '-5 hours'
+groupBy = `strftime('%H', ${localVisit})`  // 按本地小时分组
+dateFilter = `AND date(${localVisit}) = '${today}'`  // 本地日期过滤
 ```
 
 ### 14.5 store_session 生命周期（P0）
