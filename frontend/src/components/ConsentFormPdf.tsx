@@ -330,14 +330,50 @@ function ConsentFormDocument({ data }: { data: ConsentPdfData }) {
 }
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Convert a transparent-background signature PNG data-URL to one with a white background. */
+function flattenSignature(dataUrl: string): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new window.Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = img.width
+      canvas.height = img.height
+      const ctx = canvas.getContext('2d')!
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      ctx.drawImage(img, 0, 0)
+      resolve(canvas.toDataURL('image/png'))
+    }
+    img.onerror = () => resolve(dataUrl) // fallback to original
+    img.src = dataUrl
+  })
+}
+
+async function prepareData(data: ConsentPdfData): Promise<ConsentPdfData> {
+  if (!data.signatureDataUrl || !data.signatureDataUrl.startsWith('data:image/')) return data
+  const flattened = await flattenSignature(data.signatureDataUrl)
+  return { ...data, signatureDataUrl: flattened }
+}
+
+// ---------------------------------------------------------------------------
 // Public API — generates and downloads the PDF
 // ---------------------------------------------------------------------------
 export async function generateConsentPdf(data: ConsentPdfData): Promise<void> {
-  const blob = await pdf(<ConsentFormDocument data={data} />).toBlob()
+  const prepared = await prepareData(data)
+  const blob = await pdf(<ConsentFormDocument data={prepared} />).toBlob()
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
   a.download = `ConsentForm_${data.lastName}${data.firstName}_${formatDate(new Date())}.pdf`
   a.click()
   URL.revokeObjectURL(url)
+}
+
+/** Generate PDF as a Blob without triggering download (for bulk export) */
+export async function generateConsentPdfBlob(data: ConsentPdfData): Promise<Blob> {
+  const prepared = await prepareData(data)
+  return pdf(<ConsentFormDocument data={prepared} />).toBlob()
 }

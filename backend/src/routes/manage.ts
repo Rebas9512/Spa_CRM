@@ -144,6 +144,74 @@ manage.get('/export/visits', async (c) => {
   })
 })
 
+// --- GET /manage/export/forms?dateFrom=YYYY-MM-DD&dateTo=YYYY-MM-DD ---
+// Returns customer + intake form data for all customers who visited in the date range.
+// Date filtering uses store timezone so the range matches local calendar dates.
+manage.get('/export/forms', async (c) => {
+  const session = c.get('session')
+  const dateFrom = c.req.query('dateFrom')
+  const dateTo = c.req.query('dateTo')
+  if (!dateFrom || !dateTo) return c.json({ error: 'dateFrom and dateTo are required' }, 400)
+  const datePattern = /^\d{4}-\d{2}-\d{2}$/
+  if (!datePattern.test(dateFrom) || !datePattern.test(dateTo)) {
+    return c.json({ error: 'Invalid date format, expected YYYY-MM-DD' }, 400)
+  }
+
+  // Get store timezone for local time calculation
+  const storeRow = await c.env.DB.prepare('SELECT name, timezone FROM stores WHERE id = ?')
+    .bind(session.storeId).first<{ name: string; timezone: string }>()
+  const tz = storeRow?.timezone || 'America/Chicago'
+  const storeName = storeRow?.name || ''
+
+  // Compute UTC offset for store timezone (same pattern as analytics)
+  const nowUtc = new Date()
+  const offsetMs = nowUtc.getTime() - new Date(nowUtc.toLocaleString('en-US', { timeZone: 'UTC' })).getTime()
+    + new Date(nowUtc.toLocaleString('en-US', { timeZone: tz })).getTime()
+    - nowUtc.getTime()
+  const offsetHours = Math.round(offsetMs / 3600000)
+  const offsetStr = `${offsetHours >= 0 ? '+' : ''}${offsetHours} hours`
+  const localVisit = `datetime(v.visit_date, '${offsetStr}')`
+
+  // Find distinct customers who visited in the date range (local time)
+  const rows = await c.env.DB.prepare(`
+    SELECT DISTINCT c.*, if2.id as intake_id, if2.form_data, if2.status as intake_status,
+           if2.client_signed_at, if2.last_reviewed_at,
+           (SELECT COUNT(*) FROM visits WHERE customer_id = c.id AND store_id = ?) as total_visits
+    FROM customers c
+    JOIN visits v ON v.customer_id = c.id AND v.store_id = ?
+    LEFT JOIN intake_forms if2 ON if2.customer_id = c.id
+    WHERE date(${localVisit}) >= ? AND date(${localVisit}) <= ?
+      AND v.cancelled_at IS NULL
+    ORDER BY c.last_name, c.first_name
+  `).bind(session.storeId, session.storeId, dateFrom, dateTo).all<Record<string, unknown>>()
+
+  const customers = (rows.results || []).map((r) => {
+    let formData: Record<string, unknown> = {}
+    try { formData = JSON.parse((r.form_data as string) || '{}') } catch { /* empty */ }
+
+    return {
+      storeName,
+      firstName: r.first_name as string,
+      lastName: r.last_name as string,
+      phone: r.phone as string,
+      email: r.email as string | null,
+      dateOfBirth: r.date_of_birth as string | null,
+      address: r.address as string | null,
+      gender: r.gender as string | null,
+      emergencyContactName: r.emergency_contact_name as string | null,
+      emergencyContactPhone: r.emergency_contact_phone as string | null,
+      hasIntake: !!r.intake_id,
+      intakeStatus: r.intake_status as string | null,
+      clientSignedAt: r.client_signed_at as string | null,
+      lastReviewedAt: r.last_reviewed_at as string | null,
+      totalVisits: r.total_visits as number,
+      formData,
+    }
+  })
+
+  return c.json({ customers, storeName })
+})
+
 // Helper: get admin_id from current store session
 async function getAdminId(db: D1Database, storeId: string): Promise<string | null> {
   const store = await db.prepare('SELECT admin_id FROM stores WHERE id = ?').bind(storeId).first<{ admin_id: string }>()

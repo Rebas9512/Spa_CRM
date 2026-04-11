@@ -19,6 +19,7 @@ interface CustomerDetail {
   healthAlerts: HealthAlerts
   areasToAvoid: string
   intakeFormId: string | null
+  loyaltyPoints: number
 }
 
 export default function ReturnCheckin() {
@@ -94,18 +95,25 @@ export default function ReturnCheckin() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-['Inter',sans-serif]">
-      <div className="flex-1 px-6 py-6 max-w-2xl mx-auto w-full flex flex-col gap-6">
-        {/* Back link */}
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 px-6 py-3">
         <button
           onClick={() => navigate(`/s/${storeId}/`)}
-          className="text-[#0F766E] font-medium text-sm hover:underline self-start"
+          className="text-[#0F766E] font-medium text-sm active:opacity-70 transition-opacity flex items-center gap-1"
         >
           &larr; {t('nav.back')}
         </button>
+      </header>
 
-        {/* Customer name + visit info */}
+      <div className="flex-1 px-6 py-6 max-w-2xl mx-auto w-full flex flex-col gap-6">
+        {/* Customer name + points */}
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{customer.firstName} {customer.lastName}</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-gray-900">{customer.firstName} {customer.lastName}</h1>
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-sm font-semibold">
+              ★ {customer.loyaltyPoints} {t('profile.loyaltyPoints')}
+            </span>
+          </div>
           <div className="flex gap-6 text-sm text-gray-500 mt-2">
             <span>
               {t('checkin.lastVisit')}: {formatLocalTime(customer.lastVisit) || t('customer.noVisits')}
@@ -193,6 +201,11 @@ export default function ReturnCheckin() {
             {t('checkin.updateHealthForm')} &rarr;
           </button>
         </div>
+
+        {/* Disclaimer */}
+        <p className="text-xs text-gray-400 text-center leading-relaxed">
+          {t('checkin.disclaimer')}
+        </p>
       </div>
     </div>
   )

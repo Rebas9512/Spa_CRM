@@ -8,6 +8,7 @@ import { formatLocalTime } from '../../lib/timezone'
 import StoreAnalytics from '../../components/StoreAnalytics'
 import { normalizeTechnique } from '../../components/VisitHistory'
 import CsvExportButton from '../../components/CsvExportButton'
+import BulkFormExport from '../../components/BulkFormExport'
 
 // ---------------------------------------------------------------------------
 // Types (same shape as manage API responses)
@@ -233,9 +234,9 @@ export default function StoreManagePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-6xl mx-auto px-4 py-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 px-6 py-3">
+        <div className="flex items-center justify-between">
           <button
             onClick={() => navigate(`/s/${storeId}`)}
             className="px-4 py-2 text-sm font-semibold text-white bg-[#0F766E] rounded-lg active:bg-[#0d6b63] transition-colors"
@@ -256,7 +257,9 @@ export default function StoreManagePage() {
             <div className="w-[1px]" />
           )}
         </div>
+      </header>
 
+      <div className="max-w-6xl mx-auto px-4 py-6">
         {/* Tab bar */}
         <div className="flex border-b border-gray-200 mb-6">
           {tabs.map((tb) => (
@@ -378,6 +381,7 @@ export default function StoreManagePage() {
                 label={t('export.visits')}
               />
             </div>
+            <BulkFormExport />
           </div>
         )}
 

@@ -364,6 +364,7 @@ export const en = {
   'checkin.confirmCheckIn': 'Confirm Check-In',
   'checkin.viewProfile': 'View Profile',
   'checkin.updateHealthForm': 'Update Health Form',
+  'checkin.disclaimer': 'By checking in, you confirm that your health information and consent form are up to date. If anything has changed, please update your form before proceeding.',
 
   // Therapist (additional)
   'therapist.allFieldsRequired': 'Please fill in all required fields',
@@ -381,6 +382,18 @@ export const en = {
   // Export
   'export.customers': 'Export Customers CSV',
   'export.visits': 'Export Visits CSV',
+  'export.formsTitle': 'Bulk Export Consent Forms',
+  'export.formsDesc': 'Export consent forms (PDF) for all customers who visited during the selected date range, packaged as a ZIP file.',
+  'export.dateFrom': 'From',
+  'export.dateTo': 'To',
+  'export.formsButton': 'Export Forms',
+  'export.formsFetching': 'Fetching customer data...',
+  'export.formsNone': 'No customers with intake forms found in this date range.',
+  'export.formsGenerating': 'Generating PDFs...',
+  'export.formsZipping': 'Packaging ZIP file...',
+  'export.formsDone': 'Export complete!',
+  'export.formsInvalidRange': 'Start date must be before end date.',
+  'export.formsFailed': 'Export failed. Please try again.',
 
   // Manage (in-store admin)
   'manage.backToStaff': 'Staff',

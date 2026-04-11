@@ -364,6 +364,7 @@ export const zh = {
   'checkin.viewProfile': '基本信息',
   'checkin.confirmCheckIn': '确认签到',
   'checkin.updateHealthForm': '更新健康表',
+  'checkin.disclaimer': '签到即表示您确认当前的健康信息和同意书为最新状态。如有任何变更，请在签到前更新您的表单。',
 
   // Therapist (additional)
   'therapist.allFieldsRequired': '请填写所有必填项',
@@ -381,6 +382,18 @@ export const zh = {
   // Export
   'export.customers': '导出客户 CSV',
   'export.visits': '导出来访 CSV',
+  'export.formsTitle': '批量导出健康表单',
+  'export.formsDesc': '导出选定日期范围内所有到访客户的健康表单（PDF），打包为 ZIP 文件。',
+  'export.dateFrom': '开始日期',
+  'export.dateTo': '结束日期',
+  'export.formsButton': '导出表单',
+  'export.formsFetching': '正在获取客户数据...',
+  'export.formsNone': '该日期范围内没有找到有表单的客户。',
+  'export.formsGenerating': '正在生成 PDF...',
+  'export.formsZipping': '正在打包 ZIP 文件...',
+  'export.formsDone': '导出完成！',
+  'export.formsInvalidRange': '开始日期不能晚于结束日期。',
+  'export.formsFailed': '导出失败，请重试。',
 
   // Manage (in-store admin)
   'manage.backToStaff': '员工',
