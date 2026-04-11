@@ -156,7 +156,7 @@ A digital punch card system that replaces physical loyalty cards:
 - **Analytics Dashboards** — Store-level and account-level business intelligence with interactive SVG charts
 - **Multi-Store, Multi-Device** — One admin manages multiple locations; multiple iPads per store with session sync
 - **Global Customer Search** — Fuzzy search by name or phone across all stores
-- **Data Export** — CSV export of customer and visit data; PDF export of analytics dashboards
+- **Data Export** — CSV export of customer and visit data; PDF export of analytics dashboards; bulk consent form export as ZIP (date-range filtered, timezone-aware)
 - **i18n** — English and Chinese (Simplified) with runtime switching
 - **Zero-Ops Deployment** — Entire stack on Cloudflare (Workers + D1 + Pages)
 
@@ -276,7 +276,7 @@ accessLevel = staff (default, persistent)
 |-----------|-----------|-------------------|
 | Public | None | Register, Login, Store PIN |
 | Store Staff | Store JWT | Customer search/lookup, Intake CRUD, Visit create, Therapist sign, Points import |
-| Store Admin | Store JWT + `role=store_admin` | Customer/visit queries (global), Analytics, CSV/PDF export, Points modify |
+| Store Admin | Store JWT + `role=store_admin` | Customer/visit queries (global), Analytics, CSV/PDF/bulk form export, Points modify |
 | Account Admin | Admin JWT | Multi-store CRUD, Cross-store analytics, PIN management |
 
 ---
@@ -291,7 +291,7 @@ accessLevel = staff (default, persistent)
 | Forms | React Hook Form + Zod | Multi-step form with shared validation |
 | Charts | Custom SVG | Zero-dependency, interactive touch support |
 | PDF Export | html2canvas-pro + jsPDF | Pixel-perfect dashboard capture |
-| Consent PDF | @react-pdf/renderer | Structured legal document generation |
+| Consent PDF | @react-pdf/renderer + JSZip | Structured legal document generation; bulk ZIP packaging |
 | Signature | react-signature-canvas | Touch-optimized canvas drawing |
 | API | Hono on Cloudflare Workers | Edge-deployed, <50ms cold start |
 | Database | Cloudflare D1 (SQLite) | Zero-config, auto-replicated |

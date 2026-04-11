@@ -1,8 +1,8 @@
 # 按摩店客户管理系统 — 设计概念文档
 
-> 版本：v2.1（积分系统 + 数据分析 + 时区本地化）
-> 更新日期：2026-04-10
-> 状态：生产环境运行中（spa.rebasllm.com），积分系统、数据分析面板、时区本地化已上线
+> 版本：v2.2（批量表单导出 + 签到页优化 + 布局更新）
+> 更新日期：2026-04-11
+> 状态：生产环境运行中（spa.rebasllm.com），积分系统、数据分析面板、时区本地化、批量表单导出已上线
 
 ---
 
@@ -989,21 +989,27 @@ uncomfortable for any reason.
     ↓
 [员工领地：/customer/:id/checkin]
 ┌───────────────────────────────────────────────────┐
-│  Jane Smith            Last visit: 2026-03-15     │
-│  Total visits: 8                                  │
+│ ← Back                                           │  ← 独立 header（白底 + 底线，贴左）
+├───────────────────────────────────────────────────┤
+│  Jane Smith  ★ 8 Loyalty Points                  │  ← 积分徽章（琥珀色圆角标签）
+│  Last visit: 2026-03-15    Total visits: 8        │
 │                                                   │
 │  ┌── Health Summary ────────────────────────┐     │
 │  │ ⚠ High Blood Pressure                   │     │
 │  │ ✓ No injuries · No pregnancy            │     │
 │  │ Avoid: lower back area                  │     │
-│  │                      [Review Full Form →]│     │
+│  │                        [View Profile →]  │     │
 │  └──────────────────────────────────────────┘     │
 │                                                   │
 │  Service Type   [Deep Tissue      ▾]              │
 │  Therapist      [Mike              ]              │
 │                                                   │
-│  [Confirm Check-In]                               │
-│  [Update Health Form → hand iPad to client]       │
+│  [Confirm Check-In]  [Update Health Form →]       │
+│                                                   │
+│  By checking in, you confirm that your health     │  ← 免责提示（小字灰色居中）
+│  information and consent form are up to date.     │
+│  If anything has changed, please update your      │
+│  form before proceeding.                          │
 └───────────────────────────────────────────────────┘
 ```
 
@@ -1237,10 +1243,34 @@ Close Out 是**店铺级别**操作，任一设备发起，全店所有设备同
 **实现要点：**
 - 使用 `@react-pdf/renderer` 纯客户端生成，不需要新的后端 API
 - 复用 `GET /api/customers/:id/intake` 已有端点获取数据
-- 签名图片：base64 data URL 直接嵌入 PDF（`<Image src={signatureDataUrl} />`）
+- 签名图片：base64 data URL 先经 `flattenSignature()` 转为白底 PNG 再嵌入（透明背景在 PDF 渲染中不可控）
 - 文件名格式：`ConsentForm_{lastName}{firstName}_{YYYYMMDD}.pdf`
 - 按钮位置：管理版客户详情页（店内管理 + 管理员面板），员工版不含此功能
 - 若客户无 intake_form（如迁移数据），隐藏 Export PDF 按钮
+
+### 流程 I：批量同意书导出
+
+店内管理的"数据导出"标签页提供按日期范围批量导出所有到访客户的同意书 PDF。
+
+```
+[店内管理 → Export 标签页]
+  选择日期范围（From / To）
+  点击 [Export Forms]
+  → 前端调用 GET /api/manage/export/forms?dateFrom=&dateTo=
+  → 后端按门店时区转换 visit_date，查找范围内所有到访客户（排除已取消）
+  → 返回客户信息 + intake form 数据
+  → 前端逐个生成 ConsentForm PDF（复用 ConsentFormPdf 组件）
+  → JSZip 打包为 ConsentForms_{dateFrom}_{dateTo}.zip
+  → 自动下载
+```
+
+**实现要点：**
+- 后端时区处理：与 analytics 相同的 UTC offset 模式，确保日期范围匹配本地日历日期
+- `generateConsentPdfBlob()` 返回 Blob 不触发下载，供批量场景使用
+- 文件名去重：同名客户自动追加 `_N` 后缀（`zip.files` 检测冲突）
+- 进度反馈：实时显示 "生成 PDF 3/12..." 等进度文本
+- 日期校验：后端 `YYYY-MM-DD` 格式校验，前端 `dateFrom > dateTo` 范围校验
+- 仅导出有 intake_form 的客户，无表单客户自动跳过
 
 ---
 
@@ -1267,12 +1297,12 @@ Close Out 是**店铺级别**操作，任一设备发起，全店所有设备同
 | **店铺员工领地** | | | |
 | 员工主界面 | `/s/:storeId/` | 员工 | 客户查找 + 待签名横幅 + 客户列表入口 |
 | 客户列表（员工版） | `/s/:storeId/customers` | 员工 | 按最近 visit 排序 + 搜索，PIN 从客户领地回来后默认跳转此页 |
-| 老客户签到 | `/s/:storeId/customer/:id/checkin` | 员工 | 健康摘要 + 一键签到 |
+| 老客户签到 | `/s/:storeId/customer/:id/checkin` | 员工 | 独立 header + 积分徽章 + 健康摘要 + 一键签到 + 免责提示 |
 | 技师签名队列 | `/s/:storeId/therapist-queue` | 员工 | 今日待签列表 |
 | 技师记录 | `/s/:storeId/visits/:id/therapist` | 员工 | 技师填写 + 签名完成 + 取消来访 |
 | 客户档案（员工版） | `/s/:storeId/customer/:id` | 员工 | 健康提醒 + 员工备注 + 近期来访 |
 | **店内管理领地** | | | |
-| 店内管理 | `/s/:storeId/manage` | 管理 | 客户/来访查询 + 导出 |
+| 店内管理 | `/s/:storeId/manage` | 管理 | 独立 header（Staff ← / → Account）+ 客户/来访查询 + CSV/PDF 导出 |
 | 客户详情（管理版） | `/s/:storeId/manage/customers/:id` | 管理 | 完整资料 + 全部来访（含门店） + PDF 导出 |
 
 ### 关键组件
@@ -1298,7 +1328,8 @@ Close Out 是**店铺级别**操作，任一设备发起，全店所有设备同
 | `VisitHistory` | 来访时间线 |
 | `AdminTable` | 可过滤可排序表格（管理员面板 + 店内管理共用） |
 | `CsvExportButton` | CSV 下载触发 |
-| `ConsentFormPdf` | 客户同意书 PDF 生成（@react-pdf/renderer，客户端渲染） |
+| `BulkFormExport` | 批量同意书 PDF 导出（日期范围选择 + JSZip 打包下载） |
+| `ConsentFormPdf` | 客户同意书 PDF 生成（@react-pdf/renderer，客户端渲染，含签名白底处理） |
 | `StoreCard` | 管理员面板店铺卡片 |
 | `StoreIdInput` | Landing Page store ID 输入（Sync Device） |
 
@@ -1410,6 +1441,7 @@ Close Out 是**店铺级别**操作，任一设备发起，全店所有设备同
 | `GET` | `/api/manage/visits` | 当前店铺来访查询 |
 | `GET` | `/api/manage/export/customers` | CSV 客户 |
 | `GET` | `/api/manage/export/visits` | CSV 来访 |
+| `GET` | `/api/manage/export/forms` | 批量同意书数据（按门店时区日期范围过滤，前端生成 PDF + ZIP） |
 
 #### 管理员面板接口（需 Admin JWT）
 
@@ -2011,7 +2043,7 @@ packages/web/src/
 **3d — 员工日常操作**
 - [x] StaffMain（手机号查找 + [Customers] [Manage 🔒] [Close Out] header）
 - [x] CustomerList（最近来访排序 + 搜索 + 健康 badge）
-- [x] ReturnCheckin（健康摘要 + 服务选择 + 一键签到 / Update Health Form + "Review Full Form" 链接）
+- [x] ReturnCheckin（独立 header + 积分徽章 + 健康摘要 + 服务选择 + 一键签到 / Update Health Form + 免责提示）
 - [x] CustomerProfile 员工版（基本信息 + Staff Notes 编辑 + 健康 badge + 近期来访）
 - [x] CustomerCard 组件（search + row 变体）
 - [x] VisitHistory 组件（带状态 badge + Cancel Visit + 可选 Location 列）
