@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { MASSAGE_TYPES } from '@spa-crm/shared'
 import { apiFetch } from '../../lib/apiClient'
+import { formatLocalTime } from '../../lib/timezone'
 import { useAppStore } from '../../store/appStore'
 import { useTranslation } from '../../i18n'
 import HealthAlertBadge, {
@@ -107,7 +108,7 @@ export default function ReturnCheckin() {
           <h1 className="text-2xl font-bold text-gray-900">{customer.firstName} {customer.lastName}</h1>
           <div className="flex gap-6 text-sm text-gray-500 mt-2">
             <span>
-              {t('checkin.lastVisit')}: {customer.lastVisit ?? t('customer.noVisits')}
+              {t('checkin.lastVisit')}: {formatLocalTime(customer.lastVisit) || t('customer.noVisits')}
             </span>
             <span>
               {t('checkin.totalVisits')}: {customer.totalVisits}

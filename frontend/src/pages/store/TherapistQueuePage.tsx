@@ -2,6 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '../../lib/apiClient'
 import { useTranslation } from '../../i18n'
+import { formatLocalTime } from '../../lib/timezone'
 
 interface PendingVisit {
   id: string
@@ -75,7 +76,7 @@ export default function TherapistQueuePage() {
                   </span>
                   <span className="text-gray-400">&middot;</span>
                   <span className="text-sm text-gray-500">
-                    {visit.visitDate}
+                    {formatLocalTime(visit.visitDate)}
                   </span>
                 </div>
                 <button

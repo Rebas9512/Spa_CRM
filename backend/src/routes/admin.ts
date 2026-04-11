@@ -429,7 +429,17 @@ admin.get('/analytics/store-comparison', async (c) => {
   const { adminId } = c.get('admin')
   const period = c.req.query('period') || 'year'
 
-  const now = new Date()
+  // Get first store's timezone for local time calculation
+  const tzRow = await c.env.DB.prepare('SELECT timezone FROM stores WHERE admin_id = ? LIMIT 1').bind(adminId).first<{ timezone: string }>()
+  const tz = tzRow?.timezone || 'America/Chicago'
+  const nowUtc = new Date()
+  const localStr = nowUtc.toLocaleString('en-CA', { timeZone: tz, hour12: false })
+  const now = new Date(localStr.replace(',', ''))
+  const offsetMs = new Date(nowUtc.toLocaleString('en-US', { timeZone: tz })).getTime() - new Date(nowUtc.toLocaleString('en-US', { timeZone: 'UTC' })).getTime()
+  const offsetHours = Math.round(offsetMs / 3600000)
+  const offsetSql = `${offsetHours >= 0 ? '+' : ''}${offsetHours} hours`
+  const localVisit = `datetime(v.visit_date, '${offsetSql}')`
+
   const year = now.getFullYear()
   const pad = (n: number) => String(n).padStart(2, '0')
 
@@ -441,12 +451,12 @@ admin.get('/analytics/store-comparison', async (c) => {
     const m = now.getMonth() + 1
     const daysInMonth = new Date(year, m, 0).getDate()
     const monthPrefix = `${year}-${pad(m)}`
-    groupBy = "date(v.visit_date)"
-    dateFilter = `AND strftime('%Y-%m', v.visit_date) = '${monthPrefix}'`
+    groupBy = `date(${localVisit})`
+    dateFilter = `AND strftime('%Y-%m', ${localVisit}) = '${monthPrefix}'`
     allSlots = Array.from({ length: daysInMonth }, (_, i) => `${monthPrefix}-${pad(i + 1)}`)
   } else {
-    groupBy = "strftime('%Y-%m', v.visit_date)"
-    dateFilter = `AND strftime('%Y', v.visit_date) = '${year}'`
+    groupBy = `strftime('%Y-%m', ${localVisit})`
+    dateFilter = `AND strftime('%Y', ${localVisit}) = '${year}'`
     allSlots = Array.from({ length: 12 }, (_, i) => `${year}-${pad(i + 1)}`)
   }
 

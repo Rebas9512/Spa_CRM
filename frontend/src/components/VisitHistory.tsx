@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from '../i18n'
+import { formatLocalTime } from '../lib/timezone'
 
 export interface VisitRecord {
   id: string
@@ -94,7 +95,7 @@ export default function VisitHistory({ visits, onCancel, showLocation }: VisitHi
             return (
               <tr key={v.id} className="border-b border-gray-100">
                 <td className="py-2.5 px-3 text-sm text-gray-900">
-                  {v.visitDate}
+                  {formatLocalTime(v.visitDate)}
                 </td>
                 <td className="py-2.5 px-3 text-sm text-gray-600">
                   {v.cancelledAt ? '-' : normalizeTechnique(v.therapistServiceTechnique)}

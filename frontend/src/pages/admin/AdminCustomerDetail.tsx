@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '../../lib/apiClient'
+import { formatLocalTime } from '../../lib/timezone'
 import { useTranslation } from '../../i18n'
 import {
   HEALTH_CONDITIONS,
@@ -529,11 +530,11 @@ export default function AdminCustomerDetail() {
                 />
                 <DetailRow
                   label={t('admin.firstSigned')}
-                  value={intakeForm.clientSignedAt}
+                  value={formatLocalTime(intakeForm.clientSignedAt)}
                 />
                 <DetailRow
                   label={t('admin.lastReviewed')}
-                  value={intakeForm.lastReviewedAt ?? '-'}
+                  value={formatLocalTime(intakeForm.lastReviewedAt)}
                 />
                 <DetailRow
                   label={t('msg.totalVisits')}

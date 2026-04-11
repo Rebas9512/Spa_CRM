@@ -181,10 +181,10 @@ visits.patch('/visits/:id/therapist', async (c) => {
       `UPDATE intake_forms SET status = 'completed', completed_at = datetime('now')
        WHERE customer_id = ? AND status = 'client_signed'`,
     ).bind(visit.customer_id),
-    // Atomic: only deduct if balance sufficient, otherwise just +1
+    // Atomic: redeem → -10 (no point earned); normal → +1
     c.env.DB.prepare(
       `UPDATE customers SET loyalty_points = CASE
-         WHEN ? > 0 AND loyalty_points >= ? THEN loyalty_points + 1 - ?
+         WHEN ? > 0 AND loyalty_points >= ? THEN loyalty_points - ?
          ELSE loyalty_points + 1
        END WHERE id = ?`,
     ).bind(pointsRedeemed, pointsRedeemed, pointsRedeemed, visit.customer_id),

@@ -278,11 +278,28 @@ manage.get('/analytics/visit-trend', async (c) => {
   const session = c.get('session')
   const period = c.req.query('period') || 'day'
 
+  // Get store timezone for local time calculation
+  const storeRow = await c.env.DB.prepare('SELECT timezone FROM stores WHERE id = ?').bind(session.storeId).first<{ timezone: string }>()
+  const tz = storeRow?.timezone || 'America/Chicago'
+
+  // Compute "now" in store's local timezone
+  const nowUtc = new Date()
+  const localStr = nowUtc.toLocaleString('en-CA', { timeZone: tz, hour12: false })
+  const now = new Date(localStr.replace(',', ''))
+
+  // SQLite offset string for converting UTC visit_date to local
+  const offsetMs = nowUtc.getTime() - new Date(nowUtc.toLocaleString('en-US', { timeZone: 'UTC' })).getTime()
+    + new Date(nowUtc.toLocaleString('en-US', { timeZone: tz })).getTime()
+    - nowUtc.getTime()
+  const offsetHours = Math.round(offsetMs / 3600000)
+  const offsetStr = `${offsetHours >= 0 ? '+' : ''}${offsetHours} hours`
+  // localVisit converts UTC visit_date to store local time in SQL
+  const localVisit = `datetime(v.visit_date, '${offsetStr}')`
+
   let groupBy: string
   let dateFilter: string
-  let allSlots: string[]  // pre-fill all time slots so chart has no gaps
+  let allSlots: string[]
 
-  const now = new Date()
   const pad = (n: number) => String(n).padStart(2, '0')
 
   switch (period) {
@@ -295,8 +312,8 @@ manage.get('/analytics/visit-trend', async (c) => {
       const sunday = new Date(monday)
       sunday.setDate(monday.getDate() + 6)
       const sundayStr = `${sunday.getFullYear()}-${pad(sunday.getMonth() + 1)}-${pad(sunday.getDate())}`
-      groupBy = "date(v.visit_date)"
-      dateFilter = `AND date(v.visit_date) >= '${mondayStr}' AND date(v.visit_date) <= '${sundayStr}'`
+      groupBy = `date(${localVisit})`
+      dateFilter = `AND date(${localVisit}) >= '${mondayStr}' AND date(${localVisit}) <= '${sundayStr}'`
       allSlots = Array.from({ length: 7 }, (_, i) => {
         const d = new Date(monday)
         d.setDate(monday.getDate() + i)
@@ -310,24 +327,24 @@ manage.get('/analytics/visit-trend', async (c) => {
       const m = now.getMonth() + 1
       const daysInMonth = new Date(y, m, 0).getDate()
       const monthPrefix = `${y}-${pad(m)}`
-      groupBy = "date(v.visit_date)"
-      dateFilter = `AND strftime('%Y-%m', v.visit_date) = '${monthPrefix}'`
+      groupBy = `date(${localVisit})`
+      dateFilter = `AND strftime('%Y-%m', ${localVisit}) = '${monthPrefix}'`
       allSlots = Array.from({ length: daysInMonth }, (_, i) => `${monthPrefix}-${pad(i + 1)}`)
       break
     }
     case 'year': {
       // This year by month
       const y = now.getFullYear()
-      groupBy = "strftime('%Y-%m', v.visit_date)"
-      dateFilter = `AND strftime('%Y', v.visit_date) = '${y}'`
+      groupBy = `strftime('%Y-%m', ${localVisit})`
+      dateFilter = `AND strftime('%Y', ${localVisit}) = '${y}'`
       allSlots = Array.from({ length: 12 }, (_, i) => `${y}-${pad(i + 1)}`)
       break
     }
     default: {
       // Today by hour
       const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
-      groupBy = "strftime('%H', v.visit_date)"
-      dateFilter = `AND date(v.visit_date) = '${today}'`
+      groupBy = `strftime('%H', ${localVisit})`
+      dateFilter = `AND date(${localVisit}) = '${today}'`
       allSlots = Array.from({ length: 24 }, (_, i) => pad(i))
       break
     }

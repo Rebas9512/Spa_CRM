@@ -4,6 +4,7 @@ import { apiFetch } from '../../lib/apiClient'
 import { useAppStore } from '../../store/appStore'
 import { useTranslation } from '../../i18n'
 import AdminTable from '../../components/AdminTable'
+import { formatLocalTime } from '../../lib/timezone'
 import StoreAnalytics from '../../components/StoreAnalytics'
 import { normalizeTechnique } from '../../components/VisitHistory'
 import CsvExportButton from '../../components/CsvExportButton'
@@ -283,7 +284,7 @@ export default function StoreManagePage() {
                 render: (c) => `${c.firstName} ${c.lastName}`,
               },
               { key: 'phone', label: t('label.phone') },
-              { key: 'lastVisit', label: t('table.lastVisit') },
+              { key: 'lastVisit', label: t('table.lastVisit'), render: (c) => formatLocalTime(c.lastVisit as string) },
               { key: 'totalVisits', label: t('table.totalVisits'), width: '100px' },
             ]}
             data={customers as (Customer & Record<string, unknown>)[]}
@@ -307,7 +308,7 @@ export default function StoreManagePage() {
         {tab === 'visits' && (
           <AdminTable<Visit & Record<string, unknown>>
             columns={[
-              { key: 'visitDate', label: t('table.date') },
+              { key: 'visitDate', label: t('table.date'), render: (v) => formatLocalTime(v.visitDate as string) },
               { key: 'customerName', label: t('table.customer') },
               { key: 'storeName', label: t('visit.location') },
               { key: 'serviceType', label: t('table.service'), render: (v) => {

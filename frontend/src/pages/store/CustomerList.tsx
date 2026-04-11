@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '../../lib/apiClient'
 import { useTranslation } from '../../i18n'
+import { formatLocalTime } from '../../lib/timezone'
 import type { CustomerSummary } from '../../components/CustomerCard'
 
 export default function CustomerList() {
@@ -144,7 +145,7 @@ export default function CustomerList() {
                   {c.lastTherapist ?? '-'}
                 </td>
                 <td className="py-3 px-4 text-gray-600">
-                  {c.lastTime ?? '-'}
+                  {formatLocalTime(c.lastTime)}
                 </td>
                 <td className="py-3 px-4">
                   {c.healthStatus === 'ok' ? (

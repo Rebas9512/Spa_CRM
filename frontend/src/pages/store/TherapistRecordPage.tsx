@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '../../lib/apiClient'
 import { useTranslation } from '../../i18n'
+import { formatLocalTime } from '../../lib/timezone'
 import HealthAlertBadge, {
   type HealthAlerts,
 } from '../../components/HealthAlertBadge'
@@ -180,7 +181,7 @@ export default function TherapistRecordPage() {
             {visit.serviceType ?? '-'}
           </span>
           <span className="text-gray-400">&middot;</span>
-          <span className="text-sm text-gray-500">{visit.visitDate}</span>
+          <span className="text-sm text-gray-500">{formatLocalTime(visit.visitDate)}</span>
           <span className="text-gray-400">&middot;</span>
           <span className={`text-sm font-medium ${visit.customerLoyaltyPoints >= 10 ? 'text-amber-600' : 'text-gray-600'}`}>
             {t('therapist.loyaltyPoints')}: {visit.customerLoyaltyPoints}
