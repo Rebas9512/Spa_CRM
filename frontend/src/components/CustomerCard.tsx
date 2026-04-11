@@ -15,6 +15,7 @@ interface CustomerCardProps {
   variant: 'search' | 'row'
   onCheckIn?: () => void
   onClick?: () => void
+  forceEnglish?: boolean
 }
 
 export default function CustomerCard({
@@ -22,8 +23,10 @@ export default function CustomerCard({
   variant,
   onCheckIn,
   onClick,
+  forceEnglish,
 }: CustomerCardProps) {
-  const { t } = useTranslation()
+  const { t, tEn } = useTranslation()
+  const label = forceEnglish ? tEn : t
 
   const healthBadge =
     customer.healthStatus === 'ok' ? (
@@ -32,7 +35,7 @@ export default function CustomerCard({
       </span>
     ) : (
       <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700">
-        {t('health.alert')}
+        {label('health.alert')}
       </span>
     )
 
@@ -43,13 +46,13 @@ export default function CustomerCard({
           <div className="flex items-center gap-2">
             <span className="font-semibold text-gray-900">{customer.name}</span>
             <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-200 text-green-800">
-              {t('customer.found')}
+              {label('customer.found')}
             </span>
             {healthBadge}
           </div>
           <span className="text-sm text-gray-500">
             {customer.phone} &middot;{' '}
-            {t('customer.visits').replace('{count}', String(customer.totalVisits))}
+            {label('customer.visits').replace('{count}', String(customer.totalVisits))}
           </span>
         </div>
         {onCheckIn && (
@@ -57,7 +60,7 @@ export default function CustomerCard({
             onClick={onCheckIn}
             className="px-4 py-2 bg-[#0F766E] text-white font-medium rounded-lg hover:bg-[#0d6b63] transition-colors text-sm"
           >
-            {t('customer.checkIn')}
+            {label('customer.checkIn')}
           </button>
         )}
       </div>
@@ -73,7 +76,7 @@ export default function CustomerCard({
       <td className="py-3 px-4 font-medium text-gray-900">{customer.name}</td>
       <td className="py-3 px-4 text-gray-600">{customer.phone}</td>
       <td className="py-3 px-4 text-gray-600">
-        {formatLocalTime(customer.lastVisit) === '-' ? t('customer.noVisits') : formatLocalTime(customer.lastVisit)}
+        {formatLocalTime(customer.lastVisit) === '-' ? label('customer.noVisits') : formatLocalTime(customer.lastVisit)}
       </td>
       <td className="py-3 px-4 text-gray-600 text-center">{customer.totalVisits}</td>
       <td className="py-3 px-4">{healthBadge}</td>
@@ -86,7 +89,7 @@ export default function CustomerCard({
             }}
             className="text-[#0F766E] font-medium text-sm hover:underline"
           >
-            {t('customer.checkIn')}
+            {label('customer.checkIn')}
           </button>
         )}
       </td>

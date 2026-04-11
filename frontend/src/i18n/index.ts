@@ -37,5 +37,9 @@ export function useTranslation() {
     const dict = translations[locale] as Record<string, string>
     return dict[key] || (translations[locale === 'zh' ? 'en' : 'zh'] as Record<string, string>)[key] || key
   }
-  return { t, locale }
+  /** Always-English translator for customer-facing UI sections */
+  const tEn = (key: string): string => {
+    return (translations.en as Record<string, string>)[key] || key
+  }
+  return { t, tEn, locale }
 }

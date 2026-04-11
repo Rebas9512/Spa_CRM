@@ -12,7 +12,7 @@ export default function StaffMain() {
   const { storeId } = useParams<{ storeId: string }>()
   const navigate = useNavigate()
   const { storeSession, setStoreSession, setPendingAssignment, setAccessLevel } = useAppStore()
-  const { t } = useTranslation()
+  const { t, tEn } = useTranslation()
 
   const [phoneDigits, setPhoneDigits] = useState('')
   const [searchResult, setSearchResult] = useState<CustomerSummary | null>(null)
@@ -66,11 +66,11 @@ export default function StaffMain() {
         healthStatus: Object.values(c.healthAlerts || {}).some((v) => v === true) ? 'alert' : 'ok',
       })
     } catch {
-      setSearchError(t('staff.customerNotFound'))
+      setSearchError(tEn('staff.customerNotFound'))
     } finally {
       setSearching(false)
     }
-  }, [phoneDigits, t])
+  }, [phoneDigits, tEn])
 
   const handleCloseOut = useCallback(async (pin: string) => {
     setCloseOutError('')
@@ -146,7 +146,7 @@ export default function StaffMain() {
           <div className="flex items-center gap-2" style={{ width: 232 + 8 + 120 }}>
             <div className="h-12 bg-white border border-gray-200 rounded-lg flex items-center justify-center text-xl font-mono text-gray-900 tracking-wider" style={{ width: 232 }}>
               {phoneDigits || (
-                <span className="text-gray-300 text-sm">{t('staff.enterPhone')}</span>
+                <span className="text-gray-300 text-sm">{tEn('staff.enterPhone')}</span>
               )}
             </div>
             <button
@@ -159,7 +159,7 @@ export default function StaffMain() {
               style={{ width: 120 }}
             >
               <span className="text-lg">+</span>
-              {t('staff.newClient')}
+              {tEn('staff.newClient')}
             </button>
           </div>
 
@@ -187,7 +187,7 @@ export default function StaffMain() {
                         disabled={phoneDigits.length < 10 || searching}
                         className="w-[72px] h-[56px] rounded-lg bg-[#0F766E] text-white text-sm font-medium disabled:opacity-50 active:bg-[#0d6b63]"
                       >
-                        {searching ? '...' : t('staff.search')}
+                        {searching ? '...' : tEn('staff.search')}
                       </button>
                     )
                   }
@@ -211,6 +211,7 @@ export default function StaffMain() {
               <CustomerCard
                 customer={searchResult}
                 variant="search"
+                forceEnglish
                 onCheckIn={() =>
                   navigate(`/s/${storeId}/customer/${searchResult.id}/checkin`)
                 }
