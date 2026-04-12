@@ -37,6 +37,7 @@ export const SERVICE_MENU_ITEMS = [
   { value: 'A1', label: 'A1 — Chair 15min $20', category: 'Chair' },
   { value: 'A2', label: 'A2 — Chair 20min $35', category: 'Chair' },
   { value: 'A3', label: 'A3 — Chair 30min $50', category: 'Chair' },
+  { value: 'F1', label: 'F1 — Foot 30min $35', category: 'Foot' },
   { value: 'F3', label: 'F3 — Foot 60min $60', category: 'Foot' },
   { value: 'F4', label: 'F4 — Foot 60min $60', category: 'Foot' },
   { value: 'F5', label: 'F5 — Foot 90min $90', category: 'Foot' },

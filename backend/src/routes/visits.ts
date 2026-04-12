@@ -164,8 +164,8 @@ visits.patch('/visits/:id/therapist', async (c) => {
   }
 
   const pointsRedeemed = body.redeemPoints ? 10 : 0
-  // Chair items (A1, A2, A3) and B1 do not earn loyalty points
-  const noPointsItem = ['A1', 'A2', 'A3', 'B1'].includes(body.therapistServiceTechnique)
+  // Chair items (A1, A2, A3) and F1 do not earn loyalty points
+  const noPointsItem = ['A1', 'A2', 'A3', 'F1'].includes(body.therapistServiceTechnique)
 
   // db.batch: sign visit + update intake + loyalty points (atomic guard via CASE)
   const batchOps = [
