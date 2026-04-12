@@ -561,8 +561,24 @@ manage.get('/analytics/therapist-ranking', async (c) => {
     ORDER BY cnt DESC
   `).bind(session.storeId).all<{ therapist_name: string; cnt: number; foot: number; body: number; combo: number }>()
 
-  // Cluster by fuzzy name matching
-  const entries = (rows.results || []).filter((r) => r.therapist_name)
+  // Split multi-therapist entries (e.g. "Hellen & David", "David Anna")
+  // Each sub-name gets the full visit count and F/B/C attributed
+  function splitTherapistName(raw: string): string[] {
+    return raw.split(/\s*&\s*|\s+/).filter(Boolean)
+  }
+
+  const rawEntries = (rows.results || []).filter((r) => r.therapist_name)
+  const entries: typeof rawEntries = []
+  for (const row of rawEntries) {
+    const names = splitTherapistName(row.therapist_name)
+    if (names.length <= 1) {
+      entries.push(row)
+    } else {
+      for (const name of names) {
+        entries.push({ ...row, therapist_name: name })
+      }
+    }
+  }
 
   // Normalize: trim + collapse case for latin, keep CJK as-is
   function normalize(name: string): string {

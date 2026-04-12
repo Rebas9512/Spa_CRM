@@ -21,11 +21,6 @@ visits.post('/customers/:id/visits', async (c) => {
   const customer = await c.env.DB.prepare('SELECT id FROM customers WHERE id = ?').bind(customerId).first()
   if (!customer) return c.json({ error: 'Customer not found' }, 404)
 
-  const existingPending = await c.env.DB.prepare(
-    'SELECT id FROM visits WHERE customer_id = ? AND store_id = ? AND therapist_signed_at IS NULL AND cancelled_at IS NULL LIMIT 1',
-  ).bind(customerId, session.storeId).first()
-  if (existingPending) return c.json({ error: 'Customer already has a pending visit' }, 409)
-
   const visitId = generateId()
   await c.env.DB.prepare(
     'INSERT INTO visits (id, customer_id, store_id, service_type, therapist_name) VALUES (?, ?, ?, ?, ?)',

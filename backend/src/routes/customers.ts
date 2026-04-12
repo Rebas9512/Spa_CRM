@@ -164,12 +164,6 @@ customers.post('/', async (c) => {
     const customerId = existing.id
     const visitId = generateId()
 
-    // Guard: no duplicate pending visit
-    const pendingVisit = await c.env.DB.prepare(
-      'SELECT id FROM visits WHERE customer_id = ? AND store_id = ? AND therapist_signed_at IS NULL AND cancelled_at IS NULL LIMIT 1',
-    ).bind(customerId, session.storeId).first()
-    if (pendingVisit) return c.json({ error: 'Customer already has a pending visit' }, 409)
-
     try {
       const intakeFormId = generateId()
       await c.env.DB.batch([

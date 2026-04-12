@@ -177,9 +177,7 @@ export default function ReturnCheckin() {
 
         {checkinMutation.isError && (
           <p className="text-red-500 text-sm">
-            {(checkinMutation.error as Error)?.message === 'Customer already has a pending visit'
-              ? t('checkin.alreadyPending')
-              : t('common.saveFailed')}
+            {t('common.saveFailed')}
           </p>
         )}
 
