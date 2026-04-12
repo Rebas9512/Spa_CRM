@@ -103,7 +103,7 @@ CUST_RESP=$(body -X POST "$BASE/api/customers" \
       "guardianName":null,"guardianSignatureDataUrl":null,
       "consentAcknowledged":true,"clientSignatureDataUrl":"data:image/png;base64,test"
     },
-    "firstVisit":{"serviceType":"swedish_relaxation","therapistName":"Wei"}
+    "firstVisit":{"serviceType":"swedish_relaxation"}
   }')
 CUST_ID=$(echo "$CUST_RESP" | jq_val ".get('customerId','')" || echo "")
 VISIT_1=$(echo "$CUST_RESP" | jq_val ".get('visitId','')" || echo "")
@@ -150,7 +150,7 @@ echo "6. BE-03: Cancel — No Points Change"
 # Create visit #2, then cancel it
 CHECKIN=$(body -X POST "$BASE/api/customers/$CUST_ID/visits" \
   -H 'Content-Type: application/json' -H "$SAUTH_A" \
-  -d '{"serviceType":"deep_tissue","therapistName":"Sarah"}')
+  -d '{"serviceType":"deep_tissue"}')
 VISIT_2=$(echo "$CHECKIN" | jq_val ".get('visitId','')" || echo "")
 run "Create visit #2" "[ -n '$VISIT_2' ]"
 
@@ -170,7 +170,7 @@ for i in $(seq 2 10); do
   # Create visit
   V_RESP=$(body -X POST "$BASE/api/customers/$CUST_ID/visits" \
     -H 'Content-Type: application/json' -H "$SAUTH_A" \
-    -d "{\"serviceType\":\"swedish_relaxation\",\"therapistName\":\"Wei\"}")
+    -d "{\"serviceType\":\"swedish_relaxation\"}")
   V_ID=$(echo "$V_RESP" | jq_val ".get('visitId','')" || echo "")
 
   # Sign visit
@@ -190,7 +190,7 @@ echo "8. BE-10: Visit Detail Shows Points"
 # Create visit #11 (pending) to check detail
 V11_RESP=$(body -X POST "$BASE/api/customers/$CUST_ID/visits" \
   -H 'Content-Type: application/json' -H "$SAUTH_A" \
-  -d '{"serviceType":"swedish_relaxation","therapistName":"Wei"}')
+  -d '{"serviceType":"swedish_relaxation"}')
 VISIT_11=$(echo "$V11_RESP" | jq_val ".get('visitId','')" || echo "")
 
 DETAIL=$(body -H "$SAUTH_A" "$BASE/api/visits/$VISIT_11")
@@ -237,7 +237,7 @@ echo "10. BE-07: Redeem with Insufficient Points"
 # Create visit #12 (customer has 1 point, needs 10)
 V12_RESP=$(body -X POST "$BASE/api/customers/$CUST_ID/visits" \
   -H 'Content-Type: application/json' -H "$SAUTH_A" \
-  -d '{"serviceType":"swedish_relaxation","therapistName":"Wei"}')
+  -d '{"serviceType":"swedish_relaxation"}')
 VISIT_12=$(echo "$V12_RESP" | jq_val ".get('visitId','')" || echo "")
 run "Create visit #12" "[ -n '$VISIT_12' ]"
 
@@ -272,7 +272,7 @@ echo "12. EDGE-03: Points > 10, No Redemption"
 for i in $(seq 1 12); do
   V_RESP=$(body -X POST "$BASE/api/customers/$CUST_ID/visits" \
     -H 'Content-Type: application/json' -H "$SAUTH_A" \
-    -d "{\"serviceType\":\"swedish_relaxation\",\"therapistName\":\"Wei\"}")
+    -d "{\"serviceType\":\"swedish_relaxation\"}")
   V_ID=$(echo "$V_RESP" | jq_val ".get('visitId','')" || echo "")
   curl -s -X PATCH -H 'Content-Type: application/json' -H "$SAUTH_A" \
     -d '{"therapistName":"Wei","therapistServiceTechnique":"Deep tissue","therapistBodyPartsNotes":"Full body"}' \
@@ -289,7 +289,7 @@ echo "13. EDGE-04: Redeem with > 10 Points"
 
 V_RESP=$(body -X POST "$BASE/api/customers/$CUST_ID/visits" \
   -H 'Content-Type: application/json' -H "$SAUTH_A" \
-  -d '{"serviceType":"deep_tissue","therapistName":"Sarah"}')
+  -d '{"serviceType":"deep_tissue"}')
 V_ID=$(echo "$V_RESP" | jq_val ".get('visitId','')" || echo "")
 
 SIGN_STATUS=$(status -X PATCH -H 'Content-Type: application/json' -H "$SAUTH_A" \
@@ -309,7 +309,7 @@ echo "14. BE-13/14: Cross-Store Points"
 # Create visit in Store B for same customer
 V_B_RESP=$(body -X POST "$BASE/api/customers/$CUST_ID/visits" \
   -H 'Content-Type: application/json' -H "$SAUTH_B" \
-  -d '{"serviceType":"swedish_relaxation","therapistName":"Li"}')
+  -d '{"serviceType":"swedish_relaxation"}')
 V_B_ID=$(echo "$V_B_RESP" | jq_val ".get('visitId','')" || echo "")
 run "Create visit in Store B" "[ -n '$V_B_ID' ]"
 

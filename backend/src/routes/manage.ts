@@ -470,18 +470,18 @@ manage.get('/analytics/service-breakdown', async (c) => {
       SUM(CASE WHEN UPPER(SUBSTR(TRIM(v.therapist_service_technique), 1, 1)) = 'F' THEN 1 ELSE 0 END) as foot,
       SUM(CASE WHEN UPPER(SUBSTR(TRIM(v.therapist_service_technique), 1, 1)) = 'B' THEN 1 ELSE 0 END) as body,
       SUM(CASE WHEN UPPER(SUBSTR(TRIM(v.therapist_service_technique), 1, 1)) = 'C' THEN 1 ELSE 0 END) as combo,
-      SUM(CASE WHEN UPPER(SUBSTR(TRIM(v.therapist_service_technique), 1, 1)) = 'A' THEN 1 ELSE 0 END) as neck,
+      SUM(CASE WHEN UPPER(SUBSTR(TRIM(v.therapist_service_technique), 1, 1)) = 'A' THEN 1 ELSE 0 END) as chair,
       COUNT(*) as total
     FROM visits v
     WHERE v.store_id = ? AND v.therapist_signed_at IS NOT NULL ${dateFilter}
-  `).bind(session.storeId).first<{ foot: number; body: number; combo: number; neck: number; total: number }>()
+  `).bind(session.storeId).first<{ foot: number; body: number; combo: number; chair: number; total: number }>()
 
   return c.json({
     breakdown: {
       foot: rows?.foot ?? 0,
       body: rows?.body ?? 0,
       combo: rows?.combo ?? 0,
-      neck: rows?.neck ?? 0,
+      chair: rows?.chair ?? 0,
       total: rows?.total ?? 0,
     },
   })
@@ -556,13 +556,13 @@ manage.get('/analytics/therapist-ranking', async (c) => {
       SUM(CASE WHEN UPPER(SUBSTR(TRIM(therapist_service_technique), 1, 1)) = 'F' THEN 1 ELSE 0 END) as foot,
       SUM(CASE WHEN UPPER(SUBSTR(TRIM(therapist_service_technique), 1, 1)) = 'B' THEN 1 ELSE 0 END) as body,
       SUM(CASE WHEN UPPER(SUBSTR(TRIM(therapist_service_technique), 1, 1)) = 'C' THEN 1 ELSE 0 END) as combo,
-      SUM(CASE WHEN UPPER(SUBSTR(TRIM(therapist_service_technique), 1, 1)) = 'A' THEN 1 ELSE 0 END) as neck
+      SUM(CASE WHEN UPPER(SUBSTR(TRIM(therapist_service_technique), 1, 1)) = 'A' THEN 1 ELSE 0 END) as chair
     FROM visits
     WHERE store_id = ? AND therapist_signed_at IS NOT NULL
       ${dateFilter}
     GROUP BY therapist_name
     ORDER BY cnt DESC
-  `).bind(session.storeId).all<{ therapist_name: string; cnt: number; foot: number; body: number; combo: number; neck: number }>()
+  `).bind(session.storeId).all<{ therapist_name: string; cnt: number; foot: number; body: number; combo: number; chair: number }>()
 
   // Split multi-therapist entries (e.g. "Hellen & David", "David Anna")
   // Each sub-name gets the full visit count and F/B/C attributed
@@ -630,7 +630,7 @@ manage.get('/analytics/therapist-ranking', async (c) => {
   }
 
   // Cluster: merge entries whose normalized names are similar
-  interface Cluster { canonical: string; count: number; foot: number; body: number; combo: number; neck: number; variants: string[] }
+  interface Cluster { canonical: string; count: number; foot: number; body: number; combo: number; chair: number; variants: string[] }
   const clusters: Cluster[] = []
 
   for (const entry of entries) {
@@ -643,7 +643,7 @@ manage.get('/analytics/therapist-ranking', async (c) => {
         cluster.foot += entry.foot ?? 0
         cluster.body += entry.body ?? 0
         cluster.combo += entry.combo ?? 0
-        cluster.neck += entry.neck ?? 0
+        cluster.chair += entry.chair ?? 0
         if (!cluster.variants.includes(entry.therapist_name)) {
           cluster.variants.push(entry.therapist_name)
         }
@@ -658,7 +658,7 @@ manage.get('/analytics/therapist-ranking', async (c) => {
         foot: entry.foot ?? 0,
         body: entry.body ?? 0,
         combo: entry.combo ?? 0,
-        neck: entry.neck ?? 0,
+        chair: entry.chair ?? 0,
         variants: [entry.therapist_name],
       })
     }
@@ -673,7 +673,7 @@ manage.get('/analytics/therapist-ranking', async (c) => {
       foot: c.foot,
       body: c.body,
       combo: c.combo,
-      neck: c.neck,
+      chair: c.chair,
       variants: c.variants,
     })),
   })
@@ -691,19 +691,19 @@ manage.get('/analytics/top-customers', async (c) => {
            SUM(CASE WHEN UPPER(SUBSTR(TRIM(v.therapist_service_technique), 1, 1)) = 'F' THEN 1 ELSE 0 END) as foot,
            SUM(CASE WHEN UPPER(SUBSTR(TRIM(v.therapist_service_technique), 1, 1)) = 'B' THEN 1 ELSE 0 END) as body,
            SUM(CASE WHEN UPPER(SUBSTR(TRIM(v.therapist_service_technique), 1, 1)) = 'C' THEN 1 ELSE 0 END) as combo,
-           SUM(CASE WHEN UPPER(SUBSTR(TRIM(v.therapist_service_technique), 1, 1)) = 'A' THEN 1 ELSE 0 END) as neck
+           SUM(CASE WHEN UPPER(SUBSTR(TRIM(v.therapist_service_technique), 1, 1)) = 'A' THEN 1 ELSE 0 END) as chair
     FROM visits v JOIN customers c ON v.customer_id = c.id
     WHERE v.store_id = ? AND v.therapist_signed_at IS NOT NULL AND strftime('%Y', v.visit_date) = ?
     GROUP BY c.id ORDER BY visit_count DESC LIMIT 5
   `).bind(session.storeId, year).all<{
     id: string; first_name: string; last_name: string; phone: string;
-    visit_count: number; foot: number; body: number; combo: number; neck: number
+    visit_count: number; foot: number; body: number; combo: number; chair: number
   }>()
 
   return c.json({
     customers: (rows.results || []).map((r) => ({
       id: r.id, name: `${r.first_name} ${r.last_name}`, phone: r.phone,
-      visitCount: r.visit_count, foot: r.foot, body: r.body, combo: r.combo, neck: r.neck,
+      visitCount: r.visit_count, foot: r.foot, body: r.body, combo: r.combo, chair: r.chair,
     })),
   })
 })

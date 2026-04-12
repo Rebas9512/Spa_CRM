@@ -85,7 +85,7 @@ CUST_RESP=$(body -X POST "$BASE/api/customers" \
       "guardianName":null,"guardianSignatureDataUrl":null,
       "consentAcknowledged":true,"clientSignatureDataUrl":"data:image/png;base64,test"
     },
-    "firstVisit":{"serviceType":"swedish_relaxation","therapistName":"Wei"}
+    "firstVisit":{"serviceType":"swedish_relaxation"}
   }')
 CUST_ID=$(echo "$CUST_RESP" | jq_val ".get('customerId','')" || echo "")
 run "Create test customer" "[ -n '$CUST_ID' ]"
@@ -276,7 +276,7 @@ if [ -n "$STORE_B" ]; then
   # Create visit in store B for same customer
   curl -s -X POST "$BASE/api/customers/$CUST_ID/visits" \
     -H 'Content-Type: application/json' -H "$SAUTH_B" \
-    -d '{"serviceType":"deep_tissue","therapistName":"Li"}' > /dev/null 2>&1
+    -d '{"serviceType":"deep_tissue"}' > /dev/null 2>&1
 
   # Check points from store B profile
   PROFILE_B=$(body -H "$SAUTH_B" "$BASE/api/customers/$CUST_ID")

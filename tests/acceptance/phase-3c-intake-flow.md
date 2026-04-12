@@ -133,7 +133,7 @@
 | ID | Test | Steps | Expected |
 |----|------|-------|----------|
 | 3c-FORM-60 | POST body contains all fields | Intercept POST /api/customers on submit | Payload includes: firstName, lastName, phone, email, address, date_of_birth, gender, isMinor, guardianName, 8 health booleans, isPregnant, pregnancyDueDate, medicalNotes, preferredMassageType, areasOfPainTension, areasToAvoid, consentAcknowledged (true), clientSignatureDataUrl (base64 string) |
-| 3c-FORM-61 | Service + therapist included | Intercept POST | Payload includes serviceType and therapistName from Zustand (pre-assigned by employee) |
+| 3c-FORM-61 | Service type included | Intercept POST | Payload includes serviceType from Zustand (pre-assigned by employee); therapistName is set later at therapist signing |
 | 3c-FORM-62 | guardianSignatureDataUrl | Minor checked, guardian signs | Payload includes guardianSignatureDataUrl as data URL |
 
 ---
@@ -168,7 +168,7 @@
 | 3c-THANK-01 | Success display | Submit wizard form | Page shows: green checkmark circle icon, "Thank you, Jane!" (uses customer firstName), "Your form has been submitted successfully." |
 | 3c-THANK-02 | Next Client button | View ThankYou | Green button "Next Client" with right-arrow icon, centered |
 | 3c-THANK-03 | Return iPad message | View ThankYou | Divider with "or", then "Please return the iPad to our staff." below |
-| 3c-THANK-04 | Next Client action | Tap "Next Client" | Form clears completely; navigates to Step 1; accessLevel stays as `customer`; serviceType + therapistName preserved from Zustand |
+| 3c-THANK-04 | Next Client action | Tap "Next Client" | Form clears completely; navigates to Step 1; accessLevel stays as `customer`; serviceType preserved from Zustand |
 | 3c-THANK-05 | Next Client - fresh form | After tapping Next Client, view Step 1 | All fields empty; no draft data from previous submission |
 | 3c-THANK-06 | Return iPad flow | Employee takes iPad, enters PIN | accessLevel changes to `staff`; auto-redirects to `/s/:storeId/customers` (customer list); most recent customer at top |
 | 3c-THANK-07 | Edit flow ThankYou | Submit from IntakeEdit page | ThankYou shows "Changes saved! Please return the iPad to our staff." with Next Client option |

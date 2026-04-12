@@ -358,8 +358,6 @@ export const zh = {
   'checkin.healthSummary': '健康摘要',
   'checkin.areasToAvoid': '避开区域',
   'checkin.serviceType': '服务类型',
-  'checkin.therapist': '技师',
-  'checkin.therapistPlaceholder': '输入技师姓名',
   'checkin.alreadyPending': '该客人在队列中已有待签到记录。',
   'checkin.viewProfile': '基本信息',
   'checkin.confirmCheckIn': '确认签到',

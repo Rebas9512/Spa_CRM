@@ -90,7 +90,7 @@ CUST_A_RESP=$(body -X POST "$BASE/api/customers" \
       "guardianName":null,"guardianSignatureDataUrl":null,
       "consentAcknowledged":true,"clientSignatureDataUrl":"data:image/png;base64,test"
     },
-    "firstVisit":{"serviceType":"swedish_relaxation","therapistName":"Wei"}
+    "firstVisit":{"serviceType":"swedish_relaxation"}
   }')
 CUST_A=$(echo "$CUST_A_RESP" | jq_val ".get('customerId','')" || echo "")
 VISIT_A=$(echo "$CUST_A_RESP" | jq_val ".get('visitId','')" || echo "")
@@ -111,7 +111,7 @@ CUST_B_RESP=$(body -X POST "$BASE/api/customers" \
       "guardianName":null,"guardianSignatureDataUrl":null,
       "consentAcknowledged":true,"clientSignatureDataUrl":"data:image/png;base64,test"
     },
-    "firstVisit":{"serviceType":"deep_tissue","therapistName":"Li"}
+    "firstVisit":{"serviceType":"deep_tissue"}
   }')
 CUST_B=$(echo "$CUST_B_RESP" | jq_val ".get('customerId','')" || echo "")
 VISIT_B=$(echo "$CUST_B_RESP" | jq_val ".get('visitId','')" || echo "")
@@ -128,7 +128,7 @@ curl -s -X PATCH "$BASE/api/visits/$VISIT_B/therapist" \
 # Create a cross-store visit: Alpha visits Store B too
 CROSS_RESP=$(body -X POST "$BASE/api/customers/$CUST_A/visits" \
   -H 'Content-Type: application/json' -H "$SAUTH_B" \
-  -d '{"serviceType":"hot_stone","therapistName":"Sarah"}')
+  -d '{"serviceType":"hot_stone"}')
 VISIT_CROSS=$(echo "$CROSS_RESP" | jq_val ".get('visitId','')" || echo "")
 run "Alpha checks in at Store B" "[ -n '$VISIT_CROSS' ]"
 

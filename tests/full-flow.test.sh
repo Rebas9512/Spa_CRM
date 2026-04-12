@@ -148,7 +148,7 @@ CUST_RESP=$(body -X POST "$BASE/api/customers" \
       "isMinor":false,"guardianName":null,"guardianSignatureDataUrl":null,
       "consentAcknowledged":true,"clientSignatureDataUrl":"data:image/png;base64,test"
     },
-    "firstVisit":{"serviceType":"swedish_relaxation","therapistName":"Wei"}
+    "firstVisit":{"serviceType":"swedish_relaxation"}
   }')
 CUST_ID=$(echo "$CUST_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('customerId',''))" 2>/dev/null || echo "")
 VISIT_ID=$(echo "$CUST_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('visitId',''))" 2>/dev/null || echo "")
@@ -175,7 +175,7 @@ DUP_RESP=$(body -X POST "$BASE/api/customers" \
       "isMinor":false,"guardianName":null,"guardianSignatureDataUrl":null,
       "consentAcknowledged":true,"clientSignatureDataUrl":"data:image/png;base64,test"
     },
-    "firstVisit":{"serviceType":"swedish_relaxation","therapistName":"Wei"}
+    "firstVisit":{"serviceType":"swedish_relaxation"}
   }')
 DUP_HTTP=$(echo "$DUP_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print('409' if 'pending' in d.get('error','') else 'other')" 2>/dev/null || echo "other")
 run "Existing phone + pending visit → 409" "[ '$DUP_HTTP' = '409' ]"
@@ -183,7 +183,7 @@ run "Existing phone + pending visit → 409" "[ '$DUP_HTTP' = '409' ]"
 # Check-in with pending visit → 409
 run "Check-in duplicate pending → 409" \
   "[ \$(status -X POST -H 'Content-Type: application/json' -H '$SAUTH' \
-    -d '{\"serviceType\":\"swedish_relaxation\",\"therapistName\":\"Wei\"}' \
+    -d '{\"serviceType\":\"swedish_relaxation\"}' \
     $BASE/api/customers/$CUST_ID/visits) = 409 ]"
 
 # ── 9. Therapist Queue ──
@@ -222,7 +222,7 @@ echo "11. Input Validation"
 
 run "Visit POST rejects empty serviceType" \
   "[ \$(status -X POST -H 'Content-Type: application/json' -H '$SAUTH' \
-    -d '{\"serviceType\":\"\",\"therapistName\":\"Wei\"}' \
+    -d '{\"serviceType\":\"\"}' \
     $BASE/api/customers/$CUST_ID/visits) = 400 ]"
 
 run "Therapist sign rejects empty name" \
@@ -247,14 +247,14 @@ echo "13. Return Customer Check-in"
 
 # First visit is now signed, so we can create a new one
 CHECKIN_STATUS=$(status -X POST -H 'Content-Type: application/json' -H "$SAUTH" \
-  -d '{"serviceType":"deep_tissue","therapistName":"Sarah"}' \
+  -d '{"serviceType":"deep_tissue"}' \
   "$BASE/api/customers/$CUST_ID/visits")
 run "Return check-in creates visit" "[ $CHECKIN_STATUS = 201 ]"
 
 # Duplicate should fail
 run "Return check-in duplicate pending → 409" \
   "[ \$(status -X POST -H 'Content-Type: application/json' -H '$SAUTH' \
-    -d '{\"serviceType\":\"deep_tissue\",\"therapistName\":\"Sarah\"}' \
+    -d '{\"serviceType\":\"deep_tissue\"}' \
     $BASE/api/customers/$CUST_ID/visits) = 409 ]"
 
 # ── 14. Close Out ──

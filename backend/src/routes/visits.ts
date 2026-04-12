@@ -13,7 +13,6 @@ visits.post('/customers/:id/visits', async (c) => {
   const customerId = c.req.param('id')
   const parsed = z.object({
     serviceType: z.string().min(1),
-    therapistName: z.string(),
   }).safeParse(await c.req.json())
   if (!parsed.success) return c.json({ error: 'Invalid input' }, 400)
   const body = parsed.data
@@ -23,8 +22,8 @@ visits.post('/customers/:id/visits', async (c) => {
 
   const visitId = generateId()
   await c.env.DB.prepare(
-    'INSERT INTO visits (id, customer_id, store_id, service_type, therapist_name) VALUES (?, ?, ?, ?, ?)',
-  ).bind(visitId, customerId, session.storeId, body.serviceType, body.therapistName).run()
+    'INSERT INTO visits (id, customer_id, store_id, service_type) VALUES (?, ?, ?, ?)',
+  ).bind(visitId, customerId, session.storeId, body.serviceType).run()
 
   const visit = await c.env.DB.prepare('SELECT visit_date FROM visits WHERE id = ?').bind(visitId).first<{ visit_date: string }>()
 
@@ -165,6 +164,8 @@ visits.patch('/visits/:id/therapist', async (c) => {
   }
 
   const pointsRedeemed = body.redeemPoints ? 10 : 0
+  // Chair items (A1, A2, A3) and B1 do not earn loyalty points
+  const noPointsItem = ['A1', 'A2', 'A3', 'B1'].includes(body.therapistServiceTechnique)
 
   // db.batch: sign visit + update intake + loyalty points (atomic guard via CASE)
   const batchOps = [
@@ -176,13 +177,14 @@ visits.patch('/visits/:id/therapist', async (c) => {
       `UPDATE intake_forms SET status = 'completed', completed_at = datetime('now')
        WHERE customer_id = ? AND status = 'client_signed'`,
     ).bind(visit.customer_id),
-    // Atomic: redeem → -10 (no point earned); normal → +1
+    // Atomic: redeem → -10; chair → no change; normal → +1
     c.env.DB.prepare(
       `UPDATE customers SET loyalty_points = CASE
          WHEN ? > 0 AND loyalty_points >= ? THEN loyalty_points - ?
+         WHEN ? THEN loyalty_points
          ELSE loyalty_points + 1
        END WHERE id = ?`,
-    ).bind(pointsRedeemed, pointsRedeemed, pointsRedeemed, visit.customer_id),
+    ).bind(pointsRedeemed, pointsRedeemed, pointsRedeemed, noPointsItem ? 1 : 0, visit.customer_id),
   ]
   await c.env.DB.batch(batchOps)
 

@@ -119,8 +119,8 @@ customers.get('/recent', async (c) => {
     FROM customers c
     JOIN visits v ON v.customer_id = c.id AND v.store_id = ?
     LEFT JOIN intake_forms if2 ON if2.customer_id = c.id
-    WHERE v.visit_date = (SELECT MAX(v2.visit_date) FROM visits v2 WHERE v2.customer_id = c.id AND v2.store_id = ?)
-    ORDER BY v.visit_date DESC
+    WHERE v.id = (SELECT v2.id FROM visits v2 WHERE v2.customer_id = c.id AND v2.store_id = ? ORDER BY v2.visit_date DESC, v2.rowid DESC LIMIT 1)
+    ORDER BY v.visit_date DESC, v.rowid DESC
     LIMIT ?
   `).bind(session.storeId, session.storeId, session.storeId, limit).all<Record<string, unknown>>()
 
@@ -182,9 +182,9 @@ customers.post('/', async (c) => {
            ON CONFLICT(customer_id) DO UPDATE SET form_data = excluded.form_data, status = excluded.status, client_signed_at = excluded.client_signed_at`,
         ).bind(intakeFormId, customerId, JSON.stringify(data.intakeFormData)),
         c.env.DB.prepare(
-          `INSERT INTO visits (id, customer_id, store_id, service_type, therapist_name)
-           VALUES (?, ?, ?, ?, ?)`,
-        ).bind(visitId, customerId, session.storeId, data.firstVisit.serviceType, data.firstVisit.therapistName),
+          `INSERT INTO visits (id, customer_id, store_id, service_type)
+           VALUES (?, ?, ?, ?)`,
+        ).bind(visitId, customerId, session.storeId, data.firstVisit.serviceType),
       ])
     } catch {
       return c.json({ error: 'Failed to create customer' }, 500)
@@ -212,9 +212,9 @@ customers.post('/', async (c) => {
          VALUES (?, ?, ?, 'client_signed', datetime('now'))`,
       ).bind(intakeFormId, customerId, JSON.stringify(data.intakeFormData)),
       c.env.DB.prepare(
-        `INSERT INTO visits (id, customer_id, store_id, service_type, therapist_name)
-         VALUES (?, ?, ?, ?, ?)`,
-      ).bind(visitId, customerId, session.storeId, data.firstVisit.serviceType, data.firstVisit.therapistName),
+        `INSERT INTO visits (id, customer_id, store_id, service_type)
+         VALUES (?, ?, ?, ?)`,
+      ).bind(visitId, customerId, session.storeId, data.firstVisit.serviceType),
     ])
   } catch {
     return c.json({ error: 'Failed to create customer' }, 500)

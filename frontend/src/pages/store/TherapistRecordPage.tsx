@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { SERVICE_MENU_ITEMS } from '@spa-crm/shared'
 import { apiFetch } from '../../lib/apiClient'
 import { useTranslation } from '../../i18n'
 import { formatLocalTime } from '../../lib/timezone'
@@ -219,18 +220,29 @@ export default function TherapistRecordPage() {
           />
         </div>
 
-        {/* Technique */}
+        {/* Technique (service menu item) */}
         <div className="flex flex-col gap-1.5">
           <label className="text-sm font-medium text-gray-700">
             {t('therapist.technique')}
           </label>
-          <input
-            type="text"
+          <select
             value={technique}
             onChange={(e) => setTechnique(e.target.value)}
-            placeholder={t('therapist.techniquePlaceholder')}
-            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0F766E]"
-          />
+            className={`w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0F766E] ${
+              technique ? 'text-gray-900' : 'text-gray-400'
+            }`}
+          >
+            <option value="">{t('therapist.techniquePlaceholder')}</option>
+            {(['Chair', 'Foot', 'Combo', 'Body'] as const).map((cat) => (
+              <optgroup key={cat} label={cat}>
+                {SERVICE_MENU_ITEMS.filter((item) => item.category === cat).map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
         </div>
 
         {/* Body Parts */}

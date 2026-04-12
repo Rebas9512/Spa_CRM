@@ -21,12 +21,12 @@ interface PointsOverview {
   redemptionByMonth: { month: string; count: number; amount: number }[]
 }
 interface ServiceOverview {
-  serviceBreakdown: { foot: number; body: number; combo: number; neck: number; total: number }
+  serviceBreakdown: { foot: number; body: number; combo: number; chair: number; total: number }
   storeCancellationRates: { name: string; total: number; cancelled: number; rate: number }[]
 }
 
 const STORE_COLORS = ['#0F766E', '#F59E0B', '#6366F1', '#EF4444', '#EC4899', '#8B5CF6']
-const SERVICE_COLORS = { foot: '#0F766E', body: '#F59E0B', combo: '#6366F1', neck: '#EC4899' }
+const SERVICE_COLORS = { foot: '#0F766E', body: '#F59E0B', combo: '#6366F1', chair: '#EC4899' }
 
 // ── Period Switcher ──
 function PeriodSwitch<T extends string>({ options, value, onChange }: {
@@ -311,9 +311,9 @@ export default function AccountAnalytics() {
                     { key: 'Foot (F)', val: svc.serviceBreakdown.foot, color: SERVICE_COLORS.foot },
                     { key: 'Body (B)', val: svc.serviceBreakdown.body, color: SERVICE_COLORS.body },
                     { key: 'Combo (C)', val: svc.serviceBreakdown.combo, color: SERVICE_COLORS.combo },
-                    { key: 'Neck (A)', val: svc.serviceBreakdown.neck, color: SERVICE_COLORS.neck },
+                    { key: 'Chair (A)', val: svc.serviceBreakdown.chair, color: SERVICE_COLORS.chair },
                   ].map((s) => {
-                    const max = Math.max(svc.serviceBreakdown.foot, svc.serviceBreakdown.body, svc.serviceBreakdown.combo, svc.serviceBreakdown.neck, 1)
+                    const max = Math.max(svc.serviceBreakdown.foot, svc.serviceBreakdown.body, svc.serviceBreakdown.combo, svc.serviceBreakdown.chair, 1)
                     const pct = svc.serviceBreakdown.total > 0 ? Math.round((s.val / svc.serviceBreakdown.total) * 100) : 0
                     return (
                       <div key={s.key} className="flex flex-col items-center gap-1">

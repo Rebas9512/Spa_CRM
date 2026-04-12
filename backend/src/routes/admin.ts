@@ -617,11 +617,11 @@ admin.get('/analytics/service-overview', async (c) => {
       SUM(CASE WHEN UPPER(SUBSTR(TRIM(v.therapist_service_technique), 1, 1)) = 'F' THEN 1 ELSE 0 END) as foot,
       SUM(CASE WHEN UPPER(SUBSTR(TRIM(v.therapist_service_technique), 1, 1)) = 'B' THEN 1 ELSE 0 END) as body,
       SUM(CASE WHEN UPPER(SUBSTR(TRIM(v.therapist_service_technique), 1, 1)) = 'C' THEN 1 ELSE 0 END) as combo,
-      SUM(CASE WHEN UPPER(SUBSTR(TRIM(v.therapist_service_technique), 1, 1)) = 'A' THEN 1 ELSE 0 END) as neck,
+      SUM(CASE WHEN UPPER(SUBSTR(TRIM(v.therapist_service_technique), 1, 1)) = 'A' THEN 1 ELSE 0 END) as chair,
       COUNT(*) as total
     FROM visits v JOIN stores s ON v.store_id = s.id
     WHERE s.admin_id = ? AND v.therapist_signed_at IS NOT NULL AND strftime('%Y', v.visit_date) = ?
-  `).bind(adminId, year).first<{ foot: number; body: number; combo: number; neck: number; total: number }>()
+  `).bind(adminId, year).first<{ foot: number; body: number; combo: number; chair: number; total: number }>()
 
   // Per-store cancellation rates
   const cancelRows = await c.env.DB.prepare(`
@@ -635,7 +635,7 @@ admin.get('/analytics/service-overview', async (c) => {
 
   return c.json({
     serviceBreakdown: {
-      foot: fbc?.foot ?? 0, body: fbc?.body ?? 0, combo: fbc?.combo ?? 0, neck: fbc?.neck ?? 0, total: fbc?.total ?? 0,
+      foot: fbc?.foot ?? 0, body: fbc?.body ?? 0, combo: fbc?.combo ?? 0, chair: fbc?.chair ?? 0, total: fbc?.total ?? 0,
     },
     storeCancellationRates: (cancelRows.results || []).map((r) => ({
       name: r.name, total: r.total, cancelled: r.cancelled,
@@ -656,7 +656,7 @@ admin.get('/analytics/top-customers', async (c) => {
            SUM(CASE WHEN UPPER(SUBSTR(TRIM(v.therapist_service_technique), 1, 1)) = 'F' THEN 1 ELSE 0 END) as foot,
            SUM(CASE WHEN UPPER(SUBSTR(TRIM(v.therapist_service_technique), 1, 1)) = 'B' THEN 1 ELSE 0 END) as body,
            SUM(CASE WHEN UPPER(SUBSTR(TRIM(v.therapist_service_technique), 1, 1)) = 'C' THEN 1 ELSE 0 END) as combo,
-           SUM(CASE WHEN UPPER(SUBSTR(TRIM(v.therapist_service_technique), 1, 1)) = 'A' THEN 1 ELSE 0 END) as neck
+           SUM(CASE WHEN UPPER(SUBSTR(TRIM(v.therapist_service_technique), 1, 1)) = 'A' THEN 1 ELSE 0 END) as chair
     FROM visits v
     JOIN customers c ON v.customer_id = c.id
     JOIN stores s ON v.store_id = s.id
@@ -664,7 +664,7 @@ admin.get('/analytics/top-customers', async (c) => {
     GROUP BY c.id ORDER BY visit_count DESC LIMIT 5
   `).bind(adminId, year).all<{
     id: string; first_name: string; last_name: string; phone: string;
-    visit_count: number; foot: number; body: number; combo: number; neck: number
+    visit_count: number; foot: number; body: number; combo: number; chair: number
   }>()
 
   // Per-store breakdown for each top customer
@@ -689,7 +689,7 @@ admin.get('/analytics/top-customers', async (c) => {
   return c.json({
     customers: (rows.results || []).map((r) => ({
       id: r.id, name: `${r.first_name} ${r.last_name}`, phone: r.phone,
-      visitCount: r.visit_count, foot: r.foot, body: r.body, combo: r.combo, neck: r.neck,
+      visitCount: r.visit_count, foot: r.foot, body: r.body, combo: r.combo, chair: r.chair,
       storeBreakdown: storeBreakdowns[r.id] ?? [],
     })),
   })

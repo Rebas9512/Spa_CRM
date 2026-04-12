@@ -71,7 +71,6 @@ export const createCustomerSchema = z.object({
   intakeFormData: intakeFormDataSchema,
   firstVisit: z.object({
     serviceType: z.enum(massageTypeValues),
-    therapistName: z.string(),
   }),
 })
 

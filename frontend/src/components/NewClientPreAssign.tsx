@@ -16,12 +16,11 @@ export default function NewClientPreAssign({ open, onClose }: NewClientPreAssign
   const { t } = useTranslation()
 
   const [serviceType, setServiceType] = useState<string>(MASSAGE_TYPES[0].value)
-  const [therapistName, setTherapistName] = useState('')
 
   if (!open) return null
 
   const handleSubmit = () => {
-    setPendingAssignment({ serviceType, therapistName })
+    setPendingAssignment({ serviceType })
     setAccessLevel('customer')
     navigate(`/s/${storeId}/intake/new`)
   }
@@ -49,20 +48,6 @@ export default function NewClientPreAssign({ open, onClose }: NewClientPreAssign
               </option>
             ))}
           </select>
-        </div>
-
-        {/* Therapist Name */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-gray-700">
-            {t('newClient.therapistName')}
-          </label>
-          <input
-            type="text"
-            value={therapistName}
-            onChange={(e) => setTherapistName(e.target.value)}
-            placeholder={t('newClient.therapistPlaceholder')}
-            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0F766E]"
-          />
         </div>
 
         {/* Actions */}

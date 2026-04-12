@@ -18,7 +18,7 @@ interface ServiceBreakdown {
   foot: number
   body: number
   combo: number
-  neck: number
+  chair: number
   total: number
 }
 
@@ -193,7 +193,7 @@ function ServiceChart({ data }: { data: ServiceBreakdown }) {
     { key: 'Foot (F)', value: data.foot, color: '#0F766E' },
     { key: 'Body (B)', value: data.body, color: '#F59E0B' },
     { key: 'Combo (C)', value: data.combo, color: '#6366F1' },
-    { key: 'Neck (A)', value: data.neck, color: '#EC4899' },
+    { key: 'Chair (A)', value: data.chair, color: '#EC4899' },
   ]
   const maxVal = Math.max(...items.map((i) => i.value), 1)
 
@@ -262,7 +262,7 @@ interface TherapistEntry {
   foot: number
   body: number
   combo: number
-  neck: number
+  chair: number
   variants: string[]
 }
 
@@ -270,7 +270,7 @@ const SERVICE_COLORS = {
   foot: '#0F766E',
   body: '#F59E0B',
   combo: '#6366F1',
-  neck: '#EC4899',
+  chair: '#EC4899',
 } as const
 
 function TherapistRanking({ data }: { data: TherapistEntry[] }) {
@@ -280,12 +280,12 @@ function TherapistRanking({ data }: { data: TherapistEntry[] }) {
   return (
     <div className="space-y-4">
       {data.map((entry, i) => {
-        const other = entry.count - entry.foot - entry.body - entry.combo - entry.neck
+        const other = entry.count - entry.foot - entry.body - entry.combo - entry.chair
         const segments = [
           { key: 'F', value: entry.foot, color: SERVICE_COLORS.foot },
           { key: 'B', value: entry.body, color: SERVICE_COLORS.body },
           { key: 'C', value: entry.combo, color: SERVICE_COLORS.combo },
-          { key: 'A', value: entry.neck, color: SERVICE_COLORS.neck },
+          { key: 'A', value: entry.chair, color: SERVICE_COLORS.chair },
           ...(other > 0 ? [{ key: '?', value: other, color: '#D1D5DB' }] : []),
         ].filter((s) => s.value > 0)
         const barWidth = (entry.count / maxCount) * 100
@@ -321,7 +321,7 @@ function TherapistRanking({ data }: { data: TherapistEntry[] }) {
                   { label: 'F', value: entry.foot, color: SERVICE_COLORS.foot },
                   { label: 'B', value: entry.body, color: SERVICE_COLORS.body },
                   { label: 'C', value: entry.combo, color: SERVICE_COLORS.combo },
-                  { label: 'A', value: entry.neck, color: SERVICE_COLORS.neck },
+                  { label: 'A', value: entry.chair, color: SERVICE_COLORS.chair },
                 ].map((s) => (
                   <span key={s.label} className="flex items-center gap-1 text-xs text-gray-500">
                     <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
@@ -382,7 +382,7 @@ export default function StoreAnalytics() {
 
   const therapistRanking = therapistQuery.data?.ranking ?? []
   const trend = trendQuery.data?.trend ?? []
-  const breakdown = serviceQuery.data?.breakdown ?? { foot: 0, body: 0, combo: 0, neck: 0, total: 0 }
+  const breakdown = serviceQuery.data?.breakdown ?? { foot: 0, body: 0, combo: 0, chair: 0, total: 0 }
   const rates = ratesQuery.data?.rates ?? {
     total: 0, completed: 0, cancelled: 0, redeemed: 0, redeemedAmount: 0,
     cancellationRate: 0, redemptionByMonth: [],

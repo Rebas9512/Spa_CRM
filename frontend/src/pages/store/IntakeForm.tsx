@@ -272,11 +272,8 @@ export default function IntakeForm() {
             : undefined,
           intakeFormData,
           firstVisit: pendingAssignment
-            ? {
-                serviceType: pendingAssignment.serviceType,
-                therapistName: pendingAssignment.therapistName,
-              }
-            : { serviceType: MASSAGE_TYPES[0].value, therapistName: '' },
+            ? { serviceType: pendingAssignment.serviceType }
+            : { serviceType: MASSAGE_TYPES[0].value },
         }),
       })
 

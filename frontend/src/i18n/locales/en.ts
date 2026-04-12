@@ -358,8 +358,6 @@ export const en = {
   'checkin.healthSummary': 'Health Summary',
   'checkin.areasToAvoid': 'Areas to Avoid',
   'checkin.serviceType': 'Service Type',
-  'checkin.therapist': 'Therapist',
-  'checkin.therapistPlaceholder': 'Enter therapist name',
   'checkin.alreadyPending': 'This customer already has a pending visit in the queue.',
   'checkin.confirmCheckIn': 'Confirm Check-In',
   'checkin.viewProfile': 'View Profile',

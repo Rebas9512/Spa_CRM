@@ -151,7 +151,7 @@ export default function StaffMain() {
             </div>
             <button
               onClick={() => {
-                setPendingAssignment({ serviceType: MASSAGE_TYPES[0].value, therapistName: '' })
+                setPendingAssignment({ serviceType: MASSAGE_TYPES[0].value })
                 setAccessLevel('customer')
                 navigate(`/s/${storeId}/intake/new`)
               }}

@@ -33,7 +33,6 @@ export default function ReturnCheckin() {
   const { t } = useTranslation()
 
   const [serviceType, setServiceType] = useState<string>(MASSAGE_TYPES[0].value)
-  const [therapistName, setTherapistName] = useState('')
 
   const { data: customer, isLoading, isError } = useQuery({
     queryKey: ['customer-detail', id],
@@ -56,7 +55,6 @@ export default function ReturnCheckin() {
         method: 'POST',
         body: JSON.stringify({
           serviceType,
-          therapistName,
         }),
       })
     },
@@ -159,20 +157,6 @@ export default function ReturnCheckin() {
               </option>
             ))}
           </select>
-        </div>
-
-        {/* Therapist */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-gray-700">
-            {t('checkin.therapist')}
-          </label>
-          <input
-            type="text"
-            value={therapistName}
-            onChange={(e) => setTherapistName(e.target.value)}
-            placeholder={t('checkin.therapistPlaceholder')}
-            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0F766E]"
-          />
         </div>
 
         {checkinMutation.isError && (

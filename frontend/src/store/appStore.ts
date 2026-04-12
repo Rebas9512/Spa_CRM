@@ -24,7 +24,7 @@ interface AppState {
   accessLevel: AccessLevel
   setAccessLevel: (v: AccessLevel) => void
 
-  pendingAssignment: { serviceType: string; therapistName: string } | null
+  pendingAssignment: { serviceType: string } | null
   setPendingAssignment: (v: AppState['pendingAssignment']) => void
 
   returnAfterPin: string | null
