@@ -34,7 +34,7 @@ manage.get('/customers', async (c) => {
   ).bind(...params).first<{ total: number }>()
 
   const rows = await c.env.DB.prepare(`
-    SELECT c.id, c.first_name, c.last_name, c.phone, c.email,
+    SELECT c.id, c.first_name, c.last_name, c.phone, c.email, c.loyalty_points,
            MAX(v.visit_date) as last_visit, COUNT(v.id) as total_visits
     FROM customers c
     JOIN visits v ON v.customer_id = c.id
@@ -48,7 +48,7 @@ manage.get('/customers', async (c) => {
   return c.json({
     customers: (rows.results || []).map((r) => ({
       id: r.id, firstName: r.first_name, lastName: r.last_name,
-      phone: r.phone, email: r.email, lastVisit: r.last_visit, totalVisits: r.total_visits,
+      phone: r.phone, email: r.email, loyaltyPoints: r.loyalty_points ?? 0, lastVisit: r.last_visit, totalVisits: r.total_visits,
     })),
     total: countResult?.total || 0,
     page,

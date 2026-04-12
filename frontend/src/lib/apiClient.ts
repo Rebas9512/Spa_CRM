@@ -33,7 +33,11 @@ export async function apiFetch<T = unknown>(
   // Skip redirect for auth endpoints (PIN verification, login) where 401 means "wrong credentials"
   if (res.status === 401 && !url.startsWith('/api/auth/')) {
     if (url.startsWith('/api/admin/')) {
-      // Admin session expired — clear admin session and redirect to admin login
+      // Admin session expired — let AdminGuard handle /admin/me verification;
+      // for other admin endpoints, clear session and redirect
+      if (url === '/api/admin/me') {
+        throw new Error('Session invalid')
+      }
       useAppStore.getState().setAdminSession(null)
       window.location.href = '/admin/login'
     } else {

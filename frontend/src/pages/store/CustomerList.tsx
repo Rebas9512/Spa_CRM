@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '../../lib/apiClient'
 import { useTranslation } from '../../i18n'
-import { formatLocalTime } from '../../lib/timezone'
+import { normalizeTechnique } from '../../components/VisitHistory'
 import type { CustomerSummary } from '../../components/CustomerCard'
 
 export default function CustomerList() {
@@ -15,14 +15,14 @@ export default function CustomerList() {
   type CustomerRow = CustomerSummary & {
     lastService: string | null
     lastTherapist: string | null
-    lastTime: string | null
+    loyaltyPoints: number
     isRecent: boolean
   }
 
   type ApiCustomer = {
     id: string; firstName: string; lastName: string; phone: string;
     lastVisitDate: string | null; lastService: string | null; lastTherapist: string | null;
-    totalVisits: number; intakeStatus: string | null; healthStatus: string;
+    totalVisits: number; intakeStatus: string | null; healthStatus: string; loyaltyPoints: number;
   }
 
   const mapToRow = (r: ApiCustomer, isRecent: boolean): CustomerRow => ({
@@ -34,7 +34,7 @@ export default function CustomerList() {
     healthStatus: r.healthStatus as 'ok' | 'alert',
     lastService: r.lastService,
     lastTherapist: r.lastTherapist,
-    lastTime: r.lastVisitDate,
+    loyaltyPoints: r.loyaltyPoints,
     isRecent,
   })
 
@@ -118,7 +118,7 @@ export default function CustomerList() {
                 {t('customers.colTherapist')}
               </th>
               <th className="py-3 px-4 text-xs font-medium text-gray-500 uppercase">
-                {t('customers.colTime')}
+                ★ {t('profile.loyaltyPoints')}
               </th>
               <th className="py-3 px-4 text-xs font-medium text-gray-500 uppercase">
                 {t('customers.colHealth')}
@@ -139,13 +139,13 @@ export default function CustomerList() {
                 </td>
                 <td className="py-3 px-4 text-gray-600">{c.phone}</td>
                 <td className="py-3 px-4 text-gray-600">
-                  {c.lastService ?? '-'}
+                  {normalizeTechnique(c.lastService)}
                 </td>
                 <td className="py-3 px-4 text-gray-600">
                   {c.lastTherapist ?? '-'}
                 </td>
-                <td className="py-3 px-4 text-gray-600">
-                  {formatLocalTime(c.lastTime)}
+                <td className="py-3 px-4 text-amber-700 font-medium">
+                  {c.loyaltyPoints}
                 </td>
                 <td className="py-3 px-4">
                   {c.healthStatus === 'ok' ? (

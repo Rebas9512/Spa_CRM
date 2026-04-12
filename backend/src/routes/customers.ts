@@ -100,7 +100,7 @@ customers.get('/lookup', async (c) => {
     return {
       id: r.id, firstName: r.first_name, lastName: r.last_name, phone: r.phone,
       lastVisitDate: null, lastService: null, lastTherapist: null,
-      totalVisits: 0, intakeStatus: null, healthStatus,
+      totalVisits: 0, intakeStatus: null, healthStatus, loyaltyPoints: r.loyalty_points ?? 0,
     }
   })
 
@@ -113,7 +113,7 @@ customers.get('/recent', async (c) => {
   const limit = parseInt(c.req.query('limit') || '20', 10) || 20
 
   const rows = await c.env.DB.prepare(`
-    SELECT c.*, v.visit_date as last_visit_date, v.service_type as last_service, v.therapist_name as last_therapist,
+    SELECT c.*, v.visit_date as last_visit_date, v.therapist_service_technique as last_service, v.therapist_name as last_therapist,
            (SELECT COUNT(*) FROM visits WHERE customer_id = c.id AND store_id = ?) as total_visits,
            if2.status as intake_status, if2.form_data
     FROM customers c
@@ -143,6 +143,7 @@ customers.get('/recent', async (c) => {
       totalVisits: r.total_visits,
       intakeStatus: r.intake_status,
       healthStatus,
+      loyaltyPoints: r.loyalty_points ?? 0,
     }
   })
 

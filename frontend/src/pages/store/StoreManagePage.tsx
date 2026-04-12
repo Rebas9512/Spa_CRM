@@ -19,6 +19,7 @@ interface Customer {
   lastName: string
   phone: string
   email: string | null
+  loyaltyPoints: number
   lastVisit: string
   totalVisits: number
 }
@@ -287,6 +288,7 @@ export default function StoreManagePage() {
                 render: (c) => `${c.firstName} ${c.lastName}`,
               },
               { key: 'phone', label: t('label.phone') },
+              { key: 'loyaltyPoints', label: '★ ' + t('profile.loyaltyPoints'), width: '100px', render: (c) => String(c.loyaltyPoints ?? 0) },
               { key: 'lastVisit', label: t('table.lastVisit'), render: (c) => formatLocalTime(c.lastVisit as string) },
               { key: 'totalVisits', label: t('table.totalVisits'), width: '100px' },
             ]}
