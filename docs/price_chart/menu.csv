@@ -2,6 +2,7 @@
 A1,Chair,15,20
 A2,Chair,20,35
 A3,Chair,30,50
+F1,Foot,30,35
 F3,Foot,60,60
 F4,Foot,60,60
 F5,Foot,90,90
@@ -13,7 +14,3 @@ B2,Body,60,75
 B3,Body,90,105
 B4,Body,60,125
 B5,Body,120,135
-,,,
-,,,
-,,,
-,,
