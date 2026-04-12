@@ -1,7 +1,7 @@
 # 按摩店客户管理系统 — 设计概念文档
 
-> 版本：v2.2（批量表单导出 + 签到页优化 + 布局更新）
-> 更新日期：2026-04-11
+> 版本：v2.3（数据分析增强 + 多人积分归集 + 服务分类扩展）
+> 更新日期：2026-04-12
 > 状态：生产环境运行中（spa.rebasllm.com），积分系统、数据分析面板、时区本地化、批量表单导出已上线
 
 ---
@@ -1375,10 +1375,10 @@ Close Out 是**店铺级别**操作，任一设备发起，全店所有设备同
 | 指标 | 端点 | 说明 |
 |------|------|------|
 | 来访趋势 | `visit-trend?period=day\|week\|month\|year` | 日=按小时，周=本周7天，月=本月每天，年=12个月 |
-| 服务类型分布 | `service-breakdown?period=week\|month\|year` | 从 technique 首字母匹配 F/B/C |
+| 服务类型分布 | `service-breakdown?period=week\|month\|year` | 从 technique 首字母匹配 F/B/C/A |
 | 取消率 & 积分统计 | `rates` | 年度口径，含逐月兑换明细 |
-| 技师排行 | `therapist-ranking?period=month\|year` | Levenshtein + anagram 模糊聚类 |
-| 高频客户 | `top-customers` | Top 5 + F/B/C 服务分布 |
+| 技师排行 | `therapist-ranking?period=month\|year` | Levenshtein + anagram 模糊聚类；支持多技师联合记录拆分 |
+| 高频客户 | `top-customers` | Top 5 + F/B/C/A 服务分布 |
 
 ### 账号级分析（`/api/admin/analytics/*`）
 
@@ -1387,8 +1387,8 @@ Close Out 是**店铺级别**操作，任一设备发起，全店所有设备同
 | 各店来访对比 | `store-comparison?period=month\|year` | 多线折线图数据 |
 | 客户概览 | `customers-overview` | 总客户/新客/跨店客户比 |
 | 积分总览 | `points-overview` | 发放/兑换/各店明细 |
-| 服务 & 取消率 | `service-overview` | 全局 F/B/C + 各店取消率 |
-| 高频客户 | `top-customers` | Top 5 + 按项目/按店铺 双视图 |
+| 服务 & 取消率 | `service-overview` | 全局 F/B/C/A + 各店取消率 |
+| 高频客户 | `top-customers` | Top 5 + 按项目/按店铺 双视图（含 F/B/C/A） |
 
 ### 前端渲染
 
@@ -2500,7 +2500,7 @@ components/
 - [x] 技师签名流程简化：canvas 手写签名改为技师姓名文本输入（减少存储压力，来访记录直接展示技师名）
 - [x] TherapistQueuePage 加 15s 轮询（refetchInterval），解决 check-in 后队列不及时更新问题
 - [x] ReturnCheckin 成功后 invalidate 队列 + banner 两个 query key
-- [x] Visit 创建重复防护：同一客户在当前门店已有 pending visit 时返回 409
+- [x] ~~Visit 创建重复防护：同一客户在当前门店已有 pending visit 时返回 409~~（v2.3 移除，改为允许同一客户多次签到以支持多人积分归集）
 - [x] Visit 签字幂等保护：已签过的 visit 重复提交返回 409
 - [x] 已有客户走新客户通道时 upsert：更新个人信息 + 重签表单 + 创建 visit（不再静默跳过）
 - [x] Close Out 同时支持员工 PIN 和管理员 PIN
@@ -2576,6 +2576,14 @@ components/
 - [ ] 员工操作手册（开班 → 日常操作 → 关店 完整流程图）
 
 **交付物：** 生产环境上线，iPad 桌面 PWA 可用，员工培训完成。
+
+**v2.3 — 数据分析增强 + 多人积分归集 + 服务分类扩展（2026-04-12 完成）✅**
+- [x] 技师排名统计支持多技师联合记录拆分：therapist_name 中含 `&` 或空格的条目（如 "Hellen & David"、"David Anna"）在统计前按分隔符拆分，每人各自计入排名
+- [x] 移除同一客户 pending visit 唯一性约束：允许同一账号多次签到，支持多位客人将积分记录到同一会员账号的场景（visits.ts POST + customers.ts POST 两处 409 检查移除）
+- [x] 前端签到错误提示简化：移除 "already pending" 特殊分支，统一使用通用错误提示
+- [x] 新增服务分类 Neck (A)：SQL 统计、接口响应、前端图表（柱状图 / 堆叠条 / 标签）全链路添加 A 类别，颜色 `#EC4899`（pink）
+  - 涉及端点：`service-breakdown`、`therapist-ranking`、`top-customers`（门店级 + 账号级共 5 处 SQL）
+  - 涉及前端组件：`StoreAnalytics`、`AccountAnalytics`、`TopCustomers`
 
 ---
 
