@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react'
-import { Navigate, useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useAppStore } from '../../store/appStore'
 import PinPrompt from '../PinPrompt'
 
@@ -8,15 +8,11 @@ export default function StoreAdminGuard({ children }: { children: ReactNode }) {
   const { storeId } = useParams()
   const navigate = useNavigate()
 
-  if (!storeSession) {
-    return <Navigate to={`/s/${storeId}/pin`} />
-  }
-
-  if (accessLevel !== 'admin') {
+  if (!storeSession || accessLevel !== 'admin') {
     return (
       <PinPrompt
         requiredRole="store_admin"
-        onCancel={() => navigate(`/s/${storeId}/`)}
+        onCancel={() => navigate(`/s/${storeId}/${storeSession ? '' : 'pin'}`)}
       />
     )
   }

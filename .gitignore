@@ -28,7 +28,7 @@ DESIGN.md
 Form/
 
 ## Internal dev/test scripts
-ci/
+scripts/
 
 ## Database backups (contains production data)
 backups/
