@@ -1,15 +1,14 @@
-const CACHE_NAME = 'spa-crm-v1'
-const STATIC_ASSETS = ['/landing']
+// Cache version — bumped automatically by build script (see vite.config.ts)
+// When this changes, the activate handler purges all old caches.
+const CACHE_VERSION = '__BUILD_HASH__'
+const CACHE_NAME = `spa-crm-${CACHE_VERSION}`
 
-// Install: pre-cache shell
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
-  )
+// Install: activate immediately (don't wait for old tabs to close)
+self.addEventListener('install', () => {
   self.skipWaiting()
 })
 
-// Activate: clean old caches
+// Activate: purge all caches except current version
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
@@ -19,18 +18,22 @@ self.addEventListener('activate', (event) => {
   self.clients.claim()
 })
 
-// Fetch strategy
+// Fetch strategy — Network First for everything
+// Vite content-hashed filenames already guarantee CDN cache efficiency;
+// the SW layer is purely for offline resilience, not for speed.
 self.addEventListener('fetch', (event) => {
   const { request } = event
   const url = new URL(request.url)
 
-  // API requests: Network First
+  // Skip non-GET (POST/PATCH/DELETE should never be cached)
+  if (request.method !== 'GET') return
+
+  // API requests: Network First, cache successful responses for offline fallback
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
       fetch(request)
         .then((res) => {
-          // Cache successful GET responses
-          if (request.method === 'GET' && res.ok) {
+          if (res.ok) {
             const clone = res.clone()
             caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
           }
@@ -41,32 +44,14 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // Static assets (JS/CSS/images): Cache First
-  if (url.pathname.match(/\.(js|css|png|jpg|svg|woff2?)$/)) {
-    event.respondWith(
-      caches.match(request).then((cached) => cached || fetch(request).then((res) => {
+  // All other requests (HTML, JS, CSS, images): Network First
+  event.respondWith(
+    fetch(request)
+      .then((res) => {
         const clone = res.clone()
         caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
         return res
-      }))
-    )
-    return
-  }
-
-  // HTML navigation: Network First (fallback to cache for offline)
-  if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request)
-        .then((res) => {
-          const clone = res.clone()
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
-          return res
-        })
-        .catch(() => caches.match(request).then((cached) => cached || caches.match('/landing')))
-    )
-    return
-  }
-
-  // Default: network
-  event.respondWith(fetch(request))
+      })
+      .catch(() => caches.match(request))
+  )
 })

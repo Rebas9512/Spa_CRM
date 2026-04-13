@@ -146,7 +146,7 @@ A digital punch card system that replaces physical loyalty cards:
 ## Key Features
 
 - **iPad-First PWA** — Installable on iPad home screen, all interactions designed for touch
-- **Dual-Layer Authentication** — Admin accounts (JWT, 30-day) for ownership; Store PINs (staff/admin) for daily operations
+- **Dual-Layer Authentication** — Admin accounts (JWT, 30-day) for ownership; Store PINs (staff/admin) for daily operations; route guards validate tokens server-side before rendering protected pages
 - **Three-Level Access Control** — `staff` → `customer` → `admin` state machine governs device handoff on a single shared iPad
 - **Multi-Step Intake** — 4-step health questionnaire with Zod validation (shared frontend/backend), autosave, and draft restoration
 - **E-Signature & PDF** — Canvas-based signature capture; client-side PDF generation for consent documents and analytics reports
@@ -158,7 +158,7 @@ A digital punch card system that replaces physical loyalty cards:
 - **Global Customer Search** — Fuzzy search by name or phone across all stores
 - **Data Export** — CSV export of customer and visit data; PDF export of analytics dashboards; bulk consent form export as ZIP (date-range filtered, timezone-aware)
 - **i18n** — English and Chinese (Simplified) with runtime switching
-- **Zero-Ops Deployment** — Entire stack on Cloudflare (Workers + D1 + Pages)
+- **Zero-Ops Deployment** — Entire stack on Cloudflare (Workers + D1 + Pages); versioned Service Worker ensures all devices auto-update on deploy
 
 ---
 
@@ -297,6 +297,7 @@ accessLevel = staff (default, persistent)
 | Database | Cloudflare D1 (SQLite) | Zero-config, auto-replicated |
 | Auth | JWT + PBKDF2 | Stateless tokens, secure PIN hashing |
 | Hosting | Cloudflare Pages + Workers | Global CDN, zero-ops |
+| PWA / SW | Custom sw.js (Network First) | Versioned cache per build, auto-purge on deploy |
 | i18n | Custom implementation | English + Chinese runtime switching |
 
 ---
@@ -322,8 +323,7 @@ spa-crm/
 │       ├── lib/                # Crypto, ID generation, CSV builder
 │       └── db/                 # Schema SQL
 ├── shared/                 # Cross-boundary types & Zod schemas
-├── tests/                  # Integration test scripts (155+ test cases)
-│   └── acceptance/             # Acceptance criteria documents
+├── scripts/                # Verification & regression test scripts
 └── docs/
     ├── screenshots/            # Production iPad screenshots
     └── pdf_demo/               # Sample analytics PDF exports

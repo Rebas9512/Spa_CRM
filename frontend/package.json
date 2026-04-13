@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node -e \"const f=require('fs');const p='dist/sw.js';f.writeFileSync(p,f.readFileSync(p,'utf8').replace('__BUILD_HASH__',Date.now().toString(36)))\"",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit"
   },
