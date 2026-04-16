@@ -20,6 +20,7 @@ export default function StaffMain() {
   const [searching, setSearching] = useState(false)
   const [showManagePin, setShowManagePin] = useState(false)
   const [showCloseOutPin, setShowCloseOutPin] = useState(false)
+  const [showCustomersPin, setShowCustomersPin] = useState(false)
   const [closeOutError, setCloseOutError] = useState('')
 
   const handleDigit = useCallback(
@@ -106,7 +107,7 @@ export default function StaffMain() {
         </h1>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate(`/s/${storeId}/customers`)}
+            onClick={() => setShowCustomersPin(true)}
             className="px-4 py-2 text-gray-700 font-medium rounded-lg active:bg-gray-100 transition-colors text-sm"
           >
             {t('staff.customers')}
@@ -243,6 +244,16 @@ export default function StaffMain() {
             if (pin) handleCloseOut(pin)
           }}
           onCancel={() => setShowCloseOutPin(false)}
+        />
+      )}
+
+      {showCustomersPin && (
+        <PinPrompt
+          onSuccess={() => {
+            setShowCustomersPin(false)
+            navigate(`/s/${storeId}/customers`)
+          }}
+          onCancel={() => setShowCustomersPin(false)}
         />
       )}
     </div>

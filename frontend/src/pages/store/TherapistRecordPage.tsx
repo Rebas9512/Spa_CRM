@@ -36,7 +36,7 @@ export default function TherapistRecordPage() {
 
   const [therapistName, setTherapistName] = useState('')
   const [technique, setTechnique] = useState('')
-  const [bodyParts, setBodyParts] = useState('')
+  const [bodyParts, setBodyParts] = useState<string[]>([])
   const [validationError, setValidationError] = useState('')
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [redeemPoints, setRedeemPoints] = useState(false)
@@ -59,7 +59,7 @@ export default function TherapistRecordPage() {
           body: JSON.stringify({
             therapistName: therapistName.trim(),
             therapistServiceTechnique: technique,
-            therapistBodyPartsNotes: bodyParts,
+            therapistBodyPartsNotes: bodyParts.join(', '),
             redeemPoints,
           }),
         },
@@ -86,7 +86,7 @@ export default function TherapistRecordPage() {
   })
 
   const handleSubmit = () => {
-    if (!therapistName.trim() || !technique.trim() || !bodyParts.trim()) {
+    if (!therapistName.trim() || !technique.trim() || bodyParts.length === 0) {
       setValidationError(t('therapist.allFieldsRequired'))
       return
     }
@@ -250,13 +250,29 @@ export default function TherapistRecordPage() {
           <label className="text-sm font-medium text-gray-700">
             {t('therapist.bodyParts')}
           </label>
-          <input
-            type="text"
-            value={bodyParts}
-            onChange={(e) => setBodyParts(e.target.value)}
-            placeholder={t('therapist.bodyPartsPlaceholder')}
-            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0F766E]"
-          />
+          <div className="flex flex-wrap gap-2">
+            {(['Chair', 'Foot', 'Body', 'Combo'] as const).map((cat) => {
+              const selected = bodyParts.includes(cat)
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() =>
+                    setBodyParts((prev) =>
+                      selected ? prev.filter((c) => c !== cat) : [...prev, cat],
+                    )
+                  }
+                  className={`px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors ${
+                    selected
+                      ? 'bg-[#0F766E] text-white border-[#0F766E]'
+                      : 'bg-white text-gray-700 border-gray-200 active:bg-gray-100'
+                  }`}
+                >
+                  {cat}
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         {/* Loyalty Points Redemption */}
