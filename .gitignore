@@ -19,6 +19,7 @@ Thumbs.db
 *.log
 .vscode/
 .idea/
+.claude/
 
 ## Design source files
 *.pen
