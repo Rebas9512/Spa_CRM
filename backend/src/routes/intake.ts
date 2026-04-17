@@ -8,13 +8,7 @@ const intake = new Hono<{ Bindings: Bindings; Variables: { session: Session } }>
 
 // --- GET /customers/:id/intake ---
 intake.get('/customers/:id/intake', async (c) => {
-  const session = c.get('session')
   const customerId = c.req.param('id')
-
-  const hasVisit = await c.env.DB.prepare(
-    'SELECT 1 FROM visits WHERE customer_id = ? AND store_id = ? LIMIT 1',
-  ).bind(customerId, session.storeId).first()
-  if (!hasVisit) return c.json({ error: 'Not found' }, 404)
 
   const form = await c.env.DB.prepare(
     'SELECT * FROM intake_forms WHERE customer_id = ?',
@@ -43,13 +37,7 @@ intake.get('/customers/:id/intake', async (c) => {
 
 // --- PUT /customers/:id/intake (re-sign with changes) ---
 intake.put('/customers/:id/intake', async (c) => {
-  const session = c.get('session')
   const customerId = c.req.param('id')
-
-  const hasVisit = await c.env.DB.prepare(
-    'SELECT 1 FROM visits WHERE customer_id = ? AND store_id = ? LIMIT 1',
-  ).bind(customerId, session.storeId).first()
-  if (!hasVisit) return c.json({ error: 'Not found' }, 404)
 
   const body = await c.req.json<{ formData: unknown }>()
 
@@ -68,13 +56,7 @@ intake.put('/customers/:id/intake', async (c) => {
 
 // --- PATCH /customers/:id/intake/review (no changes, just stamp) ---
 intake.patch('/customers/:id/intake/review', async (c) => {
-  const session = c.get('session')
   const customerId = c.req.param('id')
-
-  const hasVisit = await c.env.DB.prepare(
-    'SELECT 1 FROM visits WHERE customer_id = ? AND store_id = ? LIMIT 1',
-  ).bind(customerId, session.storeId).first()
-  if (!hasVisit) return c.json({ error: 'Not found' }, 404)
 
   const form = await c.env.DB.prepare('SELECT id FROM intake_forms WHERE customer_id = ?').bind(customerId).first()
   if (!form) return c.json({ error: 'Intake form not found' }, 404)
