@@ -49,6 +49,7 @@ export const SERVICE_MENU_ITEMS = [
   { value: 'B3', label: 'B3 — Body 90min $105', category: 'Body' },
   { value: 'B4', label: 'B4 — Body 60min $125', category: 'Body' },
   { value: 'B5', label: 'B5 — Body 120min $135', category: 'Body' },
+  { value: 'H1', label: 'H1 — Head 60min $60', category: 'Head' },
 ] as const
 
 export const CONSENT_TEXT = [

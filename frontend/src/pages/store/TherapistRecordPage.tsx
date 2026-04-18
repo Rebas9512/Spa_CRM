@@ -233,7 +233,7 @@ export default function TherapistRecordPage() {
             }`}
           >
             <option value="">{t('therapist.techniquePlaceholder')}</option>
-            {(['Chair', 'Foot', 'Combo', 'Body'] as const).map((cat) => (
+            {(['Chair', 'Foot', 'Combo', 'Body', 'Head'] as const).map((cat) => (
               <optgroup key={cat} label={cat}>
                 {SERVICE_MENU_ITEMS.filter((item) => item.category === cat).map((item) => (
                   <option key={item.value} value={item.value}>
@@ -251,7 +251,7 @@ export default function TherapistRecordPage() {
             {t('therapist.bodyParts')}
           </label>
           <div className="flex flex-wrap gap-2">
-            {(['Chair', 'Foot', 'Body', 'Combo'] as const).map((cat) => {
+            {(['Chair', 'Foot', 'Body', 'Combo', 'Head'] as const).map((cat) => {
               const selected = bodyParts.includes(cat)
               return (
                 <button

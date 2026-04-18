@@ -14,6 +14,7 @@ interface TopCustomer {
   body: number
   combo: number
   chair: number
+  head: number
   storeBreakdown?: StoreBreakdown[]
 }
 
@@ -24,6 +25,7 @@ const SERVICE_COLORS = {
   body: '#F59E0B',
   combo: '#6366F1',
   chair: '#EC4899',
+  head: '#06B6D4',
   other: '#D1D5DB',
 } as const
 
@@ -53,12 +55,14 @@ export default function TopCustomers({ customers, mode = 'service' }: { customer
         const barWidth = (cust.visitCount / maxCount) * 100
 
         // Service segments
-        const serviceOther = cust.visitCount - cust.foot - cust.body - cust.combo - cust.chair
+        const head = cust.head ?? 0
+        const serviceOther = cust.visitCount - cust.foot - cust.body - cust.combo - cust.chair - head
         const serviceSegments = [
           { key: 'F', value: cust.foot, color: SERVICE_COLORS.foot },
           { key: 'B', value: cust.body, color: SERVICE_COLORS.body },
           { key: 'C', value: cust.combo, color: SERVICE_COLORS.combo },
           { key: 'A', value: cust.chair, color: SERVICE_COLORS.chair },
+          { key: 'H', value: head, color: SERVICE_COLORS.head },
           ...(serviceOther > 0 ? [{ key: '?', value: serviceOther, color: SERVICE_COLORS.other }] : []),
         ].filter((s) => s.value > 0)
 
@@ -75,6 +79,7 @@ export default function TopCustomers({ customers, mode = 'service' }: { customer
               { label: 'B', value: cust.body, color: SERVICE_COLORS.body },
               { label: 'C', value: cust.combo, color: SERVICE_COLORS.combo },
               { label: 'A', value: cust.chair, color: SERVICE_COLORS.chair },
+              { label: 'H', value: head, color: SERVICE_COLORS.head },
             ]
 
         return (
