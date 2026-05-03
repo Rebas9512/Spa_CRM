@@ -100,8 +100,8 @@ The system includes two levels of analytics dashboards with interactive SVG visu
 
 ### Store-Level Dashboard
 - **Visit Trend** — Intraday (hourly), weekly, monthly, and yearly views with interactive crosshair (stock-chart style touch interaction)
-- **Service Mix** — Foot (F) / Body (B) / Combo (C) breakdown with period switching
-- **Therapist Ranking** — Monthly/yearly service volume with stacked bar showing F/B/C split per therapist; fuzzy name clustering handles typos and case variations
+- **Service Mix** — Foot (F) / Body (B) / Combo (C) / Chair (A) / Head (H) breakdown with period switching
+- **Therapist Ranking** — Monthly/yearly service volume with stacked bar showing per-category split per therapist; fuzzy name clustering handles typos and case variations
 - **Top Customers** — Top 5 most frequent visitors with service type breakdown
 - **Cancellation Rate & Points Redemption** — Year-to-date metrics with monthly granularity
 
@@ -109,7 +109,7 @@ The system includes two levels of analytics dashboards with interactive SVG visu
 - **Store Comparison** — Multi-line chart comparing visit volumes across all locations
 - **Customer Overview** — Total customers, new customer growth trend, cross-store customer ratio
 - **Points System Overview** — Total issued vs redeemed, $50/redemption tracking, per-store breakdown
-- **Service Mix (Global)** — F/B/C distribution across all stores
+- **Service Mix (Global)** — F/B/C/A/H distribution across all stores
 - **Store Cancellation Rates** — Side-by-side comparison for identifying operational issues
 - **Top Customers** — Switchable view: by service type or by store distribution
 
@@ -153,6 +153,7 @@ A digital punch card system that replaces physical loyalty cards:
 - **Health Alert System** — Color-coded badges surfaced at every touchpoint
 - **Therapist Queue** — Pending signature workflow with position tracking and batch signing
 - **Loyalty Points** — Digital punch card with earning, redemption, import, and admin override
+- **Admin Data Correction** — PIN-gated edit for customer profiles and completed visit records (mistyped phone, wrong therapist sign-off, etc.); loyalty balance auto-adjusts ±1 when a service-category change crosses the points-earning boundary, with atomic rollback if the customer's balance can't cover the revert
 - **Analytics Dashboards** — Store-level and account-level business intelligence with interactive SVG charts
 - **Multi-Store, Multi-Device** — One admin manages multiple locations; multiple iPads per store with session sync
 - **Global Customer Search** — Fuzzy search by name or phone across all stores
@@ -261,12 +262,14 @@ accessLevel = staff (default, persistent)
 | Two concurrent loyalty redemptions | Atomic SQL `CASE` guard → only first succeeds, no negative balances |
 | Two concurrent points imports | `WHERE loyalty_imported_at IS NULL` → only first writes |
 | Two devices close out simultaneously | First succeeds, second receives 410 |
+| Admin edits visit while balance drops below revert delta | `CHECK (loyalty_points >= 0)` inside the D1 batch rolls back the entire transaction → 409 |
+| Admin edits phone to one a concurrent insert just claimed | `phone UNIQUE` constraint catches at UPDATE time → friendly 409 instead of 500 |
 
 ### Analytics Design
 - Store-level metrics scoped to individual store for operational decisions
 - Account-level metrics aggregated across all stores for strategic oversight
 - Therapist name fuzzy clustering (Levenshtein distance + anagram detection) handles real-world input variance
-- Service type classification by technique code prefix (F/B/C) with graceful handling of free-text input
+- Service type classification by technique code prefix (F/B/C/A/H) with graceful handling of free-text input
 - All charts rendered as inline SVG — no external chart library dependency, minimal bundle impact
 
 ### API Design
@@ -276,7 +279,7 @@ accessLevel = staff (default, persistent)
 |-----------|-----------|-------------------|
 | Public | None | Register, Login, Store PIN |
 | Store Staff | Store JWT | Customer search/lookup, Intake CRUD, Visit create, Therapist sign, Points import |
-| Store Admin | Store JWT + `role=store_admin` | Customer/visit queries (global), Analytics, CSV/PDF/bulk form export, Points modify |
+| Store Admin | Store JWT + `role=store_admin` | Customer/visit queries (global), Analytics, CSV/PDF/bulk form export, Points modify, Customer profile edit, Visit record edit |
 | Account Admin | Admin JWT | Multi-store CRUD, Cross-store analytics, PIN management |
 
 ---

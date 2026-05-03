@@ -9,6 +9,10 @@ import StoreAnalytics from '../../components/StoreAnalytics'
 import { normalizeTechnique } from '../../components/VisitHistory'
 import CsvExportButton from '../../components/CsvExportButton'
 import BulkFormExport from '../../components/BulkFormExport'
+import { SERVICE_MENU_ITEMS } from '@spa-crm/shared'
+
+const BODY_PARTS_OPTIONS = ['Chair', 'Foot', 'Body', 'Combo', 'Head'] as const
+const TECHNIQUE_CATEGORIES = ['Chair', 'Foot', 'Combo', 'Body', 'Head'] as const
 
 // ---------------------------------------------------------------------------
 // Types (same shape as manage API responses)
@@ -31,6 +35,7 @@ interface Visit {
   phone: string
   serviceType: string | null
   therapistServiceTechnique: string | null
+  therapistBodyPartsNotes: string | null
   therapistName: string | null
   therapistSignedAt: string | null
   pointsRedeemed: number
@@ -99,6 +104,27 @@ export default function StoreManagePage() {
   const [visitTotal, setVisitTotal] = useState(0)
   const [visitLoading, setVisitLoading] = useState(false)
   const visitPageSize = 50
+
+  // Edit visit modal state
+  const [editVisitId, setEditVisitId] = useState<string | null>(null)
+  const [editVisitForm, setEditVisitForm] = useState<{
+    therapistName: string
+    therapistServiceTechnique: string
+    bodyParts: string[]
+  }>({
+    therapistName: '',
+    therapistServiceTechnique: '',
+    bodyParts: [],
+  })
+  const [editVisitMeta, setEditVisitMeta] = useState<{
+    date: string
+    customerName: string
+    rawBodyParts: string
+    unrecognized: string[]
+  }>({ date: '', customerName: '', rawBodyParts: '', unrecognized: [] })
+  const [editVisitPin, setEditVisitPin] = useState('')
+  const [editVisitError, setEditVisitError] = useState('')
+  const [editVisitSaving, setEditVisitSaving] = useState(false)
 
   // General Settings
   const [generalSettings, setGeneralSettings] = useState(loadGeneralSettings)
@@ -220,6 +246,39 @@ export default function StoreManagePage() {
   useEffect(() => {
     if (tab === 'visits') fetchVisits()
   }, [tab, fetchVisits])
+
+  const handleSaveEditVisit = async () => {
+    if (!editVisitId) return
+    const f = editVisitForm
+    if (!f.therapistName.trim() || !f.therapistServiceTechnique.trim() || f.bodyParts.length === 0 || !editVisitPin) {
+      setEditVisitError(t('profile.fieldRequired'))
+      return
+    }
+    setEditVisitSaving(true)
+    try {
+      await apiFetch(`/api/manage/visits/${editVisitId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          therapistName: f.therapistName,
+          therapistServiceTechnique: f.therapistServiceTechnique,
+          therapistBodyPartsNotes: f.bodyParts.join(', '),
+          pin: editVisitPin,
+        }),
+      })
+      setEditVisitId(null)
+      setEditVisitPin('')
+      setEditVisitError('')
+      fetchVisits()
+    } catch (err) {
+      const msg = (err as Error).message || ''
+      if (msg.includes('PIN')) setEditVisitError(t('profile.pinIncorrect'))
+      else if (msg.includes('Insufficient balance')) setEditVisitError(t('visit.insufficientBalance'))
+      else if (msg.includes('not completed')) setEditVisitError(t('visit.notCompleted'))
+      else setEditVisitError(t('common.saveFailed'))
+    } finally {
+      setEditVisitSaving(false)
+    }
+  }
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'customers', label: t('nav.customers') },
@@ -345,6 +404,49 @@ export default function StoreManagePage() {
                     >
                       {s.label}
                     </span>
+                  )
+                },
+              },
+              {
+                key: 'edit',
+                label: t('visit.action'),
+                render: (v) => {
+                  const visit = v as unknown as Visit
+                  const isCompleted = !visit.cancelledAt && !!visit.therapistSignedAt
+                  if (!isCompleted) return null
+                  return (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        const rawParts = (visit.therapistBodyPartsNotes ?? '')
+                          .split(',')
+                          .map((s) => s.trim())
+                          .filter(Boolean)
+                        const recognized = rawParts.filter((p) =>
+                          (BODY_PARTS_OPTIONS as readonly string[]).includes(p),
+                        )
+                        const unrecognized = rawParts.filter((p) =>
+                          !(BODY_PARTS_OPTIONS as readonly string[]).includes(p),
+                        )
+                        setEditVisitId(visit.id)
+                        setEditVisitForm({
+                          therapistName: visit.therapistName ?? '',
+                          therapistServiceTechnique: visit.therapistServiceTechnique ?? '',
+                          bodyParts: recognized,
+                        })
+                        setEditVisitMeta({
+                          date: formatLocalTime(visit.visitDate),
+                          customerName: visit.customerName,
+                          rawBodyParts: visit.therapistBodyPartsNotes ?? '',
+                          unrecognized,
+                        })
+                        setEditVisitPin('')
+                        setEditVisitError('')
+                      }}
+                      className="text-[#0F766E] text-sm font-medium hover:underline"
+                    >
+                      {t('visit.edit')}
+                    </button>
                   )
                 },
               },
@@ -603,6 +705,134 @@ export default function StoreManagePage() {
           </div>
         )}
       </div>
+
+      {/* Edit Visit Modal */}
+      {editVisitId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">{t('visit.editTitle')}</h3>
+              {editVisitMeta.date && (
+                <p className="text-xs text-gray-500 mt-1">
+                  {t('visit.editingContextWithCustomer')
+                    .replace('{customer}', editVisitMeta.customerName)
+                    .replace('{date}', editVisitMeta.date)}
+                </p>
+              )}
+            </div>
+            <p className="text-sm text-gray-500 leading-relaxed">{t('visit.editDesc')}</p>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-gray-600">
+                {t('visit.therapistName')}<span className="text-red-500 ml-0.5">*</span>
+              </label>
+              <input
+                type="text"
+                value={editVisitForm.therapistName}
+                onChange={(e) => { setEditVisitForm((f) => ({ ...f, therapistName: e.target.value })); setEditVisitError('') }}
+                className="px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0F766E]"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-gray-600">
+                {t('visit.technique')}<span className="text-red-500 ml-0.5">*</span>
+              </label>
+              <select
+                value={editVisitForm.therapistServiceTechnique}
+                onChange={(e) => { setEditVisitForm((f) => ({ ...f, therapistServiceTechnique: e.target.value })); setEditVisitError('') }}
+                className={`px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0F766E] bg-white ${
+                  editVisitForm.therapistServiceTechnique ? 'text-gray-900' : 'text-gray-400'
+                }`}
+              >
+                <option value="">{t('therapist.techniquePlaceholder')}</option>
+                {TECHNIQUE_CATEGORIES.map((cat) => (
+                  <optgroup key={cat} label={cat}>
+                    {SERVICE_MENU_ITEMS.filter((item) => item.category === cat).map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-gray-600">
+                {t('visit.bodyParts')}<span className="text-red-500 ml-0.5">*</span>
+              </label>
+              {editVisitMeta.unrecognized.length > 0 && (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
+                  <span className="font-medium">{t('visit.originalNotes')}:</span>{' '}
+                  <span className="font-mono">{editVisitMeta.rawBodyParts}</span>
+                  <br />
+                  <span className="text-amber-600">{t('visit.originalNotesHint')}</span>
+                </p>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {BODY_PARTS_OPTIONS.map((cat) => {
+                  const selected = editVisitForm.bodyParts.includes(cat)
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => {
+                        setEditVisitForm((f) => ({
+                          ...f,
+                          bodyParts: selected
+                            ? f.bodyParts.filter((c) => c !== cat)
+                            : [...f.bodyParts, cat],
+                        }))
+                        setEditVisitError('')
+                      }}
+                      className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors ${
+                        selected
+                          ? 'bg-[#0F766E] text-white border-[#0F766E]'
+                          : 'bg-white text-gray-700 border-gray-200 active:bg-gray-100'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="border-t border-gray-100 pt-4">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-600">
+                  {t('profile.adminPin')}<span className="text-red-500 ml-0.5">*</span>
+                </label>
+                <input
+                  type="password"
+                  value={editVisitPin}
+                  onChange={(e) => { setEditVisitPin(e.target.value); setEditVisitError('') }}
+                  className="px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0F766E]"
+                />
+              </div>
+            </div>
+
+            {editVisitError && <p className="text-red-500 text-sm">{editVisitError}</p>}
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => { setEditVisitId(null); setEditVisitPin(''); setEditVisitError('') }}
+                className="flex-1 py-2.5 border border-gray-200 rounded-lg text-gray-700 font-medium text-sm"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={handleSaveEditVisit}
+                disabled={editVisitSaving}
+                className="flex-1 py-2.5 bg-[#0F766E] text-white rounded-lg font-medium text-sm disabled:opacity-50"
+              >
+                {editVisitSaving ? t('common.saving') : t('common.save')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -7,6 +7,7 @@ export interface VisitRecord {
   visitDate: string
   serviceType: string | null
   therapistServiceTechnique: string | null
+  therapistBodyPartsNotes?: string | null
   therapistName: string | null
   therapistSignedAt: string | null
   pointsRedeemed?: number
@@ -24,6 +25,7 @@ export function normalizeTechnique(raw: string | null | undefined): string {
 interface VisitHistoryProps {
   visits: VisitRecord[]
   onCancel?: (visitId: string) => void
+  onEdit?: (visit: VisitRecord) => void
   showLocation?: boolean
 }
 
@@ -39,7 +41,7 @@ const statusConfig = {
   cancelled: { bg: '#FEE2E2', text: '#991B1B', label: 'visit.statusCancelled' },
 } as const
 
-export default function VisitHistory({ visits, onCancel, showLocation }: VisitHistoryProps) {
+export default function VisitHistory({ visits, onCancel, onEdit, showLocation }: VisitHistoryProps) {
   const { t } = useTranslation()
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
 
@@ -135,6 +137,14 @@ export default function VisitHistory({ visits, onCancel, showLocation }: VisitHi
                       {confirmingId === v.id
                         ? t('visit.confirmCancel')
                         : t('visit.cancelVisit')}
+                    </button>
+                  )}
+                  {status === 'completed' && onEdit && (
+                    <button
+                      onClick={() => onEdit(v)}
+                      className="text-[#0F766E] text-sm font-medium hover:underline"
+                    >
+                      {t('visit.edit')}
                     </button>
                   )}
                 </td>

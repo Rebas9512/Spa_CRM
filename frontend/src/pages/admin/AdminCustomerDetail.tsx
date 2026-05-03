@@ -7,7 +7,12 @@ import { useTranslation } from '../../i18n'
 import {
   HEALTH_CONDITIONS,
   HIGH_RISK_CONDITIONS,
+  GENDER_OPTIONS,
+  SERVICE_MENU_ITEMS,
 } from '@spa-crm/shared'
+
+const BODY_PARTS_OPTIONS = ['Chair', 'Foot', 'Body', 'Combo', 'Head'] as const
+const TECHNIQUE_CATEGORIES = ['Chair', 'Foot', 'Combo', 'Body', 'Head'] as const
 import VisitHistory from '../../components/VisitHistory'
 import type { VisitRecord } from '../../components/VisitHistory'
 import { generateConsentPdf } from '../../components/ConsentFormPdf'
@@ -56,6 +61,7 @@ interface VisitApiRecord {
   therapistName: string | null
   storeName: string | null
   therapistServiceTechnique: string | null
+  therapistBodyPartsNotes: string | null
   therapistSignedAt: string | null
   pointsRedeemed: number
   pointsAfter: number | null
@@ -77,6 +83,7 @@ function toVisitRecords(visits: VisitApiRecord[]): VisitRecord[] {
     visitDate: v.visitDate,
     serviceType: v.serviceType,
     therapistServiceTechnique: v.therapistServiceTechnique,
+    therapistBodyPartsNotes: v.therapistBodyPartsNotes ?? null,
     therapistName: v.therapistName,
     storeName: v.storeName,
     therapistSignedAt: v.therapistSignedAt,
@@ -104,6 +111,41 @@ export default function AdminCustomerDetail() {
   const [modifyPointsValue, setModifyPointsValue] = useState('')
   const [modifyPin, setModifyPin] = useState('')
   const [modifyError, setModifyError] = useState('')
+
+  // Edit basic info modal state
+  const [showEditInfo, setShowEditInfo] = useState(false)
+  const [editInfoForm, setEditInfoForm] = useState({
+    firstName: '',
+    lastName: '',
+    phone: '',
+    email: '',
+    address: '',
+    dateOfBirth: '',
+    gender: '',
+    emergencyContactName: '',
+    emergencyContactPhone: '',
+  })
+  const [editInfoPin, setEditInfoPin] = useState('')
+  const [editInfoError, setEditInfoError] = useState('')
+
+  // Edit visit modal state
+  const [editVisitId, setEditVisitId] = useState<string | null>(null)
+  const [editVisitForm, setEditVisitForm] = useState<{
+    therapistName: string
+    therapistServiceTechnique: string
+    bodyParts: string[]
+  }>({
+    therapistName: '',
+    therapistServiceTechnique: '',
+    bodyParts: [],
+  })
+  const [editVisitMeta, setEditVisitMeta] = useState<{ date: string; rawBodyParts: string; unrecognized: string[] }>({
+    date: '',
+    rawBodyParts: '',
+    unrecognized: [],
+  })
+  const [editVisitPin, setEditVisitPin] = useState('')
+  const [editVisitError, setEditVisitError] = useState('')
 
   // ---- Queries ----
   const customerQuery = useQuery({
@@ -163,6 +205,60 @@ export default function AdminCustomerDetail() {
       setModifyError(err.message?.includes('PIN')
         ? t('profile.pinIncorrect')
         : t('common.saveFailed'))
+    },
+  })
+
+  const editInfoMutation = useMutation({
+    mutationFn: (payload: typeof editInfoForm & { pin: string }) =>
+      apiFetch(`/api/manage/customers/${customerId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-customer', customerId] })
+      setShowEditInfo(false)
+      setEditInfoPin('')
+      setEditInfoError('')
+    },
+    onError: (err: Error) => {
+      const msg = err.message || ''
+      if (msg.includes('PIN')) setEditInfoError(t('profile.pinIncorrect'))
+      else if (msg.includes('Phone already in use')) setEditInfoError(t('profile.phoneInUse'))
+      else if (msg.includes('Invalid phone')) setEditInfoError(t('profile.invalidPhone'))
+      else setEditInfoError(t('common.saveFailed'))
+    },
+  })
+
+  const editVisitMutation = useMutation({
+    mutationFn: (payload: {
+      visitId: string
+      therapistName: string
+      therapistServiceTechnique: string
+      therapistBodyPartsNotes: string
+      pin: string
+    }) =>
+      apiFetch(`/api/manage/visits/${payload.visitId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          therapistName: payload.therapistName,
+          therapistServiceTechnique: payload.therapistServiceTechnique,
+          therapistBodyPartsNotes: payload.therapistBodyPartsNotes,
+          pin: payload.pin,
+        }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-customer-visits', customerId] })
+      queryClient.invalidateQueries({ queryKey: ['admin-customer', customerId] })
+      setEditVisitId(null)
+      setEditVisitPin('')
+      setEditVisitError('')
+    },
+    onError: (err: Error) => {
+      const msg = err.message || ''
+      if (msg.includes('PIN')) setEditVisitError(t('profile.pinIncorrect'))
+      else if (msg.includes('Insufficient balance')) setEditVisitError(t('visit.insufficientBalance'))
+      else if (msg.includes('not completed')) setEditVisitError(t('visit.notCompleted'))
+      else setEditVisitError(t('common.saveFailed'))
     },
   })
 
@@ -344,21 +440,57 @@ export default function AdminCustomerDetail() {
           {/* Card 1: Customer Info */}
           <div className="bg-[#FAFAFA] border border-gray-200 rounded-xl p-5 flex flex-col gap-3">
             {/* Avatar + Name */}
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-[#CCFBF1] flex items-center justify-center">
-                <span className="text-[#0F766E] text-base font-bold">
-                  {initials}
-                </span>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-12 h-12 rounded-full bg-[#CCFBF1] flex items-center justify-center flex-shrink-0">
+                  <span className="text-[#0F766E] text-base font-bold">
+                    {initials}
+                  </span>
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-lg font-semibold text-[#0D0D0D] truncate">
+                    {customer.firstName} {customer.lastName}
+                  </h2>
+                  <p className="text-xs text-gray-500 truncate">
+                    {customer.phone}
+                    {customer.email ? ` \u00B7 ${customer.email}` : ''}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-lg font-semibold text-[#0D0D0D]">
-                  {customer.firstName} {customer.lastName}
-                </h2>
-                <p className="text-xs text-gray-500">
-                  {customer.phone}
-                  {customer.email ? ` \u00B7 ${customer.email}` : ''}
-                </p>
-              </div>
+              <button
+                onClick={() => {
+                  setEditInfoForm({
+                    firstName: customer.firstName ?? '',
+                    lastName: customer.lastName ?? '',
+                    phone: customer.phone ?? '',
+                    email: customer.email ?? '',
+                    address: customer.address ?? '',
+                    dateOfBirth: customer.dateOfBirth ?? '',
+                    gender: customer.gender ?? '',
+                    emergencyContactName: customer.emergencyContactName ?? '',
+                    emergencyContactPhone: customer.emergencyContactPhone ?? '',
+                  })
+                  setEditInfoPin('')
+                  setEditInfoError('')
+                  setShowEditInfo(true)
+                }}
+                className="flex items-center gap-1 px-2 py-1 border border-gray-200 rounded-md hover:bg-gray-100 transition-colors flex-shrink-0"
+              >
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#374151"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+                <span className="text-xs text-gray-700">{t('profile.editInfo')}</span>
+              </button>
             </div>
 
             {/* Detail rows */}
@@ -404,6 +536,130 @@ export default function AdminCustomerDetail() {
             </div>
           </div>
 
+          {/* Edit Info Modal */}
+          {showEditInfo && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto space-y-4">
+                <h3 className="text-lg font-semibold text-gray-900">{t('profile.editInfoTitle')}</h3>
+                <p className="text-sm text-gray-500">{t('profile.editInfoDesc')}</p>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <EditField
+                    label={t('profile.firstName')}
+                    required
+                    value={editInfoForm.firstName}
+                    onChange={(v) => { setEditInfoForm((f) => ({ ...f, firstName: v })); setEditInfoError('') }}
+                  />
+                  <EditField
+                    label={t('profile.lastName')}
+                    required
+                    value={editInfoForm.lastName}
+                    onChange={(v) => { setEditInfoForm((f) => ({ ...f, lastName: v })); setEditInfoError('') }}
+                  />
+                </div>
+
+                <EditField
+                  label={t('profile.phone')}
+                  required
+                  type="tel"
+                  value={editInfoForm.phone}
+                  onChange={(v) => { setEditInfoForm((f) => ({ ...f, phone: v })); setEditInfoError('') }}
+                />
+
+                <EditField
+                  label={t('profile.email')}
+                  type="email"
+                  value={editInfoForm.email}
+                  onChange={(v) => { setEditInfoForm((f) => ({ ...f, email: v })); setEditInfoError('') }}
+                />
+
+                <EditField
+                  label={t('profile.address')}
+                  value={editInfoForm.address}
+                  onChange={(v) => { setEditInfoForm((f) => ({ ...f, address: v })); setEditInfoError('') }}
+                />
+
+                <div className="grid grid-cols-2 gap-3">
+                  <EditField
+                    label={t('profile.dob')}
+                    type="date"
+                    value={editInfoForm.dateOfBirth}
+                    onChange={(v) => { setEditInfoForm((f) => ({ ...f, dateOfBirth: v })); setEditInfoError('') }}
+                  />
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-gray-600">{t('admin.gender')}</label>
+                    <select
+                      value={editInfoForm.gender}
+                      onChange={(e) => { setEditInfoForm((f) => ({ ...f, gender: e.target.value })); setEditInfoError('') }}
+                      className="px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0F766E] bg-white"
+                    >
+                      <option value="">{t('profile.genderUnset')}</option>
+                      {GENDER_OPTIONS.map((g) => (
+                        <option key={g.value} value={g.value}>
+                          {t(`profile.gender${g.value === 'male' ? 'Male' : g.value === 'female' ? 'Female' : g.value === 'non_binary' ? 'NonBinary' : 'PreferNot'}`)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <EditField
+                    label={t('profile.emergencyName')}
+                    value={editInfoForm.emergencyContactName}
+                    onChange={(v) => { setEditInfoForm((f) => ({ ...f, emergencyContactName: v })); setEditInfoError('') }}
+                  />
+                  <EditField
+                    label={t('profile.emergencyPhone')}
+                    type="tel"
+                    value={editInfoForm.emergencyContactPhone}
+                    onChange={(v) => { setEditInfoForm((f) => ({ ...f, emergencyContactPhone: v })); setEditInfoError('') }}
+                  />
+                </div>
+
+                <div className="border-t border-gray-100 pt-4">
+                  <EditField
+                    label={t('profile.adminPin')}
+                    required
+                    type="password"
+                    value={editInfoPin}
+                    onChange={(v) => { setEditInfoPin(v); setEditInfoError('') }}
+                  />
+                </div>
+
+                {editInfoError && <p className="text-red-500 text-sm">{editInfoError}</p>}
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => { setShowEditInfo(false); setEditInfoPin(''); setEditInfoError('') }}
+                    className="flex-1 py-2.5 border border-gray-200 rounded-lg text-gray-700 font-medium text-sm"
+                  >
+                    {t('common.cancel')}
+                  </button>
+                  <button
+                    onClick={() => {
+                      const f = editInfoForm
+                      if (!f.firstName.trim() || !f.lastName.trim() || !f.phone.trim() || !editInfoPin) {
+                        setEditInfoError(t('profile.fieldRequired'))
+                        return
+                      }
+                      const phoneDigits = f.phone.replace(/\D/g, '')
+                      if (phoneDigits.length < 10 || phoneDigits.length > 11) {
+                        setEditInfoError(t('profile.invalidPhone'))
+                        return
+                      }
+                      editInfoMutation.mutate({ ...f, pin: editInfoPin })
+                    }}
+                    disabled={editInfoMutation.isPending}
+                    className="flex-1 py-2.5 bg-[#0F766E] text-white rounded-lg font-medium text-sm disabled:opacity-50"
+                  >
+                    {editInfoMutation.isPending ? t('common.saving') : t('common.save')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Modify Points Modal */}
           {showModifyPoints && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -444,6 +700,136 @@ export default function AdminCustomerDetail() {
                     className="flex-1 py-2.5 bg-[#0F766E] text-white rounded-lg font-medium text-sm disabled:opacity-50"
                   >
                     {modifyPointsMutation.isPending ? t('common.saving') : t('common.save')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Edit Visit Modal */}
+          {editVisitId && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">{t('visit.editTitle')}</h3>
+                  {editVisitMeta.date && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {t('visit.editingContext').replace('{date}', editVisitMeta.date)}
+                    </p>
+                  )}
+                </div>
+                <p className="text-sm text-gray-500 leading-relaxed">{t('visit.editDesc')}</p>
+
+                <EditField
+                  label={t('visit.therapistName')}
+                  required
+                  value={editVisitForm.therapistName}
+                  onChange={(v) => { setEditVisitForm((f) => ({ ...f, therapistName: v })); setEditVisitError('') }}
+                />
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs text-gray-600">
+                    {t('visit.technique')}<span className="text-red-500 ml-0.5">*</span>
+                  </label>
+                  <select
+                    value={editVisitForm.therapistServiceTechnique}
+                    onChange={(e) => { setEditVisitForm((f) => ({ ...f, therapistServiceTechnique: e.target.value })); setEditVisitError('') }}
+                    className={`px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0F766E] bg-white ${
+                      editVisitForm.therapistServiceTechnique ? 'text-gray-900' : 'text-gray-400'
+                    }`}
+                  >
+                    <option value="">{t('therapist.techniquePlaceholder')}</option>
+                    {TECHNIQUE_CATEGORIES.map((cat) => (
+                      <optgroup key={cat} label={cat}>
+                        {SERVICE_MENU_ITEMS.filter((item) => item.category === cat).map((item) => (
+                          <option key={item.value} value={item.value}>
+                            {item.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs text-gray-600">
+                    {t('visit.bodyParts')}<span className="text-red-500 ml-0.5">*</span>
+                  </label>
+                  {editVisitMeta.unrecognized.length > 0 && (
+                    <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
+                      <span className="font-medium">{t('visit.originalNotes')}:</span>{' '}
+                      <span className="font-mono">{editVisitMeta.rawBodyParts}</span>
+                      <br />
+                      <span className="text-amber-600">{t('visit.originalNotesHint')}</span>
+                    </p>
+                  )}
+                  <div className="flex flex-wrap gap-2">
+                    {BODY_PARTS_OPTIONS.map((cat) => {
+                      const selected = editVisitForm.bodyParts.includes(cat)
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => {
+                            setEditVisitForm((f) => ({
+                              ...f,
+                              bodyParts: selected
+                                ? f.bodyParts.filter((c) => c !== cat)
+                                : [...f.bodyParts, cat],
+                            }))
+                            setEditVisitError('')
+                          }}
+                          className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors ${
+                            selected
+                              ? 'bg-[#0F766E] text-white border-[#0F766E]'
+                              : 'bg-white text-gray-700 border-gray-200 active:bg-gray-100'
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <div className="border-t border-gray-100 pt-4">
+                  <EditField
+                    label={t('profile.adminPin')}
+                    required
+                    type="password"
+                    value={editVisitPin}
+                    onChange={(v) => { setEditVisitPin(v); setEditVisitError('') }}
+                  />
+                </div>
+
+                {editVisitError && <p className="text-red-500 text-sm">{editVisitError}</p>}
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => { setEditVisitId(null); setEditVisitPin(''); setEditVisitError('') }}
+                    className="flex-1 py-2.5 border border-gray-200 rounded-lg text-gray-700 font-medium text-sm"
+                  >
+                    {t('common.cancel')}
+                  </button>
+                  <button
+                    onClick={() => {
+                      const f = editVisitForm
+                      if (!f.therapistName.trim() || !f.therapistServiceTechnique.trim() || f.bodyParts.length === 0 || !editVisitPin) {
+                        setEditVisitError(t('profile.fieldRequired'))
+                        return
+                      }
+                      editVisitMutation.mutate({
+                        visitId: editVisitId,
+                        therapistName: f.therapistName,
+                        therapistServiceTechnique: f.therapistServiceTechnique,
+                        therapistBodyPartsNotes: f.bodyParts.join(', '),
+                        pin: editVisitPin,
+                      })
+                    }}
+                    disabled={editVisitMutation.isPending}
+                    className="flex-1 py-2.5 bg-[#0F766E] text-white rounded-lg font-medium text-sm disabled:opacity-50"
+                  >
+                    {editVisitMutation.isPending ? t('common.saving') : t('common.save')}
                   </button>
                 </div>
               </div>
@@ -615,6 +1001,31 @@ export default function AdminCustomerDetail() {
             <VisitHistory
               visits={visitRecords}
               showLocation
+              onEdit={(v) => {
+                const rawParts = (v.therapistBodyPartsNotes ?? '')
+                  .split(',')
+                  .map((s) => s.trim())
+                  .filter(Boolean)
+                const recognized = rawParts.filter((p) =>
+                  (BODY_PARTS_OPTIONS as readonly string[]).includes(p),
+                )
+                const unrecognized = rawParts.filter((p) =>
+                  !(BODY_PARTS_OPTIONS as readonly string[]).includes(p),
+                )
+                setEditVisitId(v.id)
+                setEditVisitForm({
+                  therapistName: v.therapistName ?? '',
+                  therapistServiceTechnique: v.therapistServiceTechnique ?? '',
+                  bodyParts: recognized,
+                })
+                setEditVisitMeta({
+                  date: formatLocalTime(v.visitDate),
+                  rawBodyParts: v.therapistBodyPartsNotes ?? '',
+                  unrecognized,
+                })
+                setEditVisitPin('')
+                setEditVisitError('')
+              }}
             />
           </div>
         </div>
@@ -648,6 +1059,35 @@ function DetailRow({
       ) : (
         <span className="text-xs text-[#374151]">{value ?? '-'}</span>
       )}
+    </div>
+  )
+}
+
+function EditField({
+  label,
+  value,
+  onChange,
+  required,
+  type = 'text',
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  required?: boolean
+  type?: string
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-xs text-gray-600">
+        {label}
+        {required && <span className="text-red-500 ml-0.5">*</span>}
+      </label>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0F766E]"
+      />
     </div>
   )
 }

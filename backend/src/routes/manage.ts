@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { verifyHash } from '../lib/hash'
 import { generateCustomersCsv, generateVisitsCsv } from '../lib/csv'
+import { phoneSchema, GENDER_OPTIONS } from '@spa-crm/shared'
 
 type Bindings = { DB: D1Database; JWT_SECRET: string }
 type Session = { storeId: string; role: string; sessionId: string; sessionStartAt: string }
@@ -93,6 +94,7 @@ manage.get('/visits', async (c) => {
       id: v.id, visitDate: v.visit_date, customerName: `${v.first_name} ${v.last_name}`,
       phone: v.phone, serviceType: v.service_type, therapistName: v.therapist_name,
       therapistServiceTechnique: v.therapist_service_technique ?? null,
+      therapistBodyPartsNotes: v.therapist_body_parts_notes ?? null,
       therapistSignedAt: v.therapist_signed_at, pointsRedeemed: v.points_redeemed ?? 0, pointsAfter: v.points_after ?? null,
       cancelledAt: v.cancelled_at,
       storeName: v.store_name,
@@ -276,6 +278,7 @@ manage.get('/customers/:id/visits', async (c) => {
       visitDate: v.visit_date, serviceType: v.service_type,
       therapistName: v.therapist_name, storeName: v.store_name,
       therapistServiceTechnique: v.therapist_service_technique ?? null,
+      therapistBodyPartsNotes: v.therapist_body_parts_notes ?? null,
       therapistSignedAt: v.therapist_signed_at, pointsRedeemed: v.points_redeemed ?? 0, pointsAfter: v.points_after ?? null,
       cancelledAt: v.cancelled_at,
     })),
@@ -331,6 +334,197 @@ manage.patch('/customers/:id/loyalty-points', async (c) => {
   ).bind(loyaltyPoints, customerId).run()
 
   return c.json({ loyaltyPoints })
+})
+
+// --- PATCH /manage/customers/:id (edit basic info with admin PIN) ---
+manage.patch('/customers/:id', async (c) => {
+  const session = c.get('session')
+  const customerId = c.req.param('id')
+
+  const genderValues = GENDER_OPTIONS.map((g) => g.value) as [string, ...string[]]
+  const optionalText = z.string().nullable().optional()
+
+  const parsed = z.object({
+    firstName: z.string().trim().min(1),
+    lastName: z.string().trim().min(1),
+    phone: z.string().min(1),
+    email: z.union([z.string().email(), z.literal(''), z.null()]).optional(),
+    address: optionalText,
+    dateOfBirth: optionalText,
+    gender: z.union([z.enum(genderValues), z.literal(''), z.null()]).optional(),
+    emergencyContactName: optionalText,
+    emergencyContactPhone: optionalText,
+    pin: z.string().min(1),
+  }).safeParse(await c.req.json())
+  if (!parsed.success) return c.json({ error: 'Invalid input' }, 400)
+  const data = parsed.data
+
+  // Normalize phone (digits only, 10-11 chars)
+  const phoneCheck = phoneSchema.safeParse(data.phone)
+  if (!phoneCheck.success) return c.json({ error: 'Invalid phone' }, 400)
+  const phone = phoneCheck.data
+
+  // Verify customer exists
+  const customer = await c.env.DB.prepare('SELECT id FROM customers WHERE id = ?').bind(customerId).first()
+  if (!customer) return c.json({ error: 'Customer not found' }, 404)
+
+  // Verify customer belongs to admin's stores
+  const adminId = await getAdminId(c.env.DB, session.storeId)
+  if (adminId) {
+    const ownership = await c.env.DB.prepare(
+      'SELECT 1 FROM visits v JOIN stores s ON v.store_id = s.id WHERE v.customer_id = ? AND s.admin_id = ? LIMIT 1',
+    ).bind(customerId, adminId).first()
+    if (!ownership) return c.json({ error: 'Not found' }, 404)
+  }
+
+  // Verify admin PIN for current store
+  const store = await c.env.DB.prepare(
+    'SELECT admin_pin_hash FROM stores WHERE id = ?',
+  ).bind(session.storeId).first<{ admin_pin_hash: string }>()
+  if (!store || !(await verifyHash(data.pin, store.admin_pin_hash))) {
+    return c.json({ error: 'PIN incorrect' }, 403)
+  }
+
+  // Pre-check phone uniqueness (fast friendly error path).
+  // The customers.phone UNIQUE constraint is the authoritative guard against
+  // a race where another customer claims this phone between check and UPDATE.
+  const phoneOwner = await c.env.DB.prepare(
+    'SELECT id FROM customers WHERE phone = ? AND id != ? LIMIT 1',
+  ).bind(phone, customerId).first<{ id: string }>()
+  if (phoneOwner) return c.json({ error: 'Phone already in use' }, 409)
+
+  // Normalize empty strings to null for nullable columns
+  const normalize = (v: string | null | undefined) => (v == null || v === '' ? null : v)
+
+  try {
+    await c.env.DB.prepare(`
+      UPDATE customers
+      SET first_name = ?, last_name = ?, phone = ?, email = ?, address = ?,
+          date_of_birth = ?, gender = ?, emergency_contact_name = ?, emergency_contact_phone = ?
+      WHERE id = ?
+    `).bind(
+      data.firstName.trim(),
+      data.lastName.trim(),
+      phone,
+      normalize(data.email),
+      normalize(data.address),
+      normalize(data.dateOfBirth),
+      normalize(data.gender),
+      normalize(data.emergencyContactName),
+      normalize(data.emergencyContactPhone),
+      customerId,
+    ).run()
+  } catch (err) {
+    const msg = (err as Error)?.message ?? ''
+    if (/UNIQUE constraint failed: customers\.phone/i.test(msg)) {
+      return c.json({ error: 'Phone already in use' }, 409)
+    }
+    throw err
+  }
+
+  return c.json({ ok: true })
+})
+
+// --- PATCH /manage/visits/:id (edit completed visit's therapist fields with admin PIN) ---
+manage.patch('/visits/:id', async (c) => {
+  const session = c.get('session')
+  const visitId = c.req.param('id')
+
+  const parsed = z.object({
+    therapistName: z.string().trim().min(1),
+    therapistServiceTechnique: z.string().trim().min(1),
+    therapistBodyPartsNotes: z.string().trim().min(1),
+    pin: z.string().min(1),
+  }).safeParse(await c.req.json())
+  if (!parsed.success) return c.json({ error: 'Invalid input' }, 400)
+  const { therapistName, therapistServiceTechnique, therapistBodyPartsNotes, pin } = parsed.data
+
+  // Load visit
+  const visit = await c.env.DB.prepare(
+    'SELECT id, customer_id, store_id, therapist_service_technique, therapist_signed_at, cancelled_at, points_redeemed FROM visits WHERE id = ?',
+  ).bind(visitId).first<{
+    id: string; customer_id: string; store_id: string;
+    therapist_service_technique: string | null;
+    therapist_signed_at: string | null; cancelled_at: string | null;
+    points_redeemed: number | null;
+  }>()
+  if (!visit) return c.json({ error: 'Visit not found' }, 404)
+
+  // Only completed visits are editable
+  if (!visit.therapist_signed_at) return c.json({ error: 'Visit is not completed' }, 409)
+  if (visit.cancelled_at) return c.json({ error: 'Visit is cancelled' }, 409)
+
+  // Verify visit belongs to admin's stores
+  const adminId = await getAdminId(c.env.DB, session.storeId)
+  if (adminId) {
+    const ownership = await c.env.DB.prepare(
+      'SELECT 1 FROM stores WHERE id = ? AND admin_id = ? LIMIT 1',
+    ).bind(visit.store_id, adminId).first()
+    if (!ownership) return c.json({ error: 'Not found' }, 404)
+  }
+
+  // Verify admin PIN for current store
+  const store = await c.env.DB.prepare(
+    'SELECT admin_pin_hash FROM stores WHERE id = ?',
+  ).bind(session.storeId).first<{ admin_pin_hash: string }>()
+  if (!store || !(await verifyHash(pin, store.admin_pin_hash))) {
+    return c.json({ error: 'PIN incorrect' }, 403)
+  }
+
+  // Determine points delta
+  // Rule: redemption visits (points_redeemed > 0) are not adjusted on edit.
+  // Otherwise compare old vs new "earned" status using the same no-points list as sign-off.
+  const NO_POINTS_ITEMS = ['A1', 'A2', 'F1']
+  const normalizeCode = (s: string | null | undefined) =>
+    (s ?? '').replace(/[^\p{L}\p{N}\s]/gu, '').replace(/\s+/g, ' ').trim().toUpperCase()
+  const oldEarned = !NO_POINTS_ITEMS.includes(normalizeCode(visit.therapist_service_technique))
+  const newEarned = !NO_POINTS_ITEMS.includes(normalizeCode(therapistServiceTechnique))
+  const isRedemption = (visit.points_redeemed ?? 0) > 0
+  let delta = 0
+  if (!isRedemption) {
+    if (oldEarned && !newEarned) delta = -1
+    else if (!oldEarned && newEarned) delta = +1
+  }
+
+  // Apply update + balance adjustment.
+  // The customers.loyalty_points CHECK (>= 0) constraint guarantees atomicity:
+  // if delta would push balance negative, the whole batch rolls back.
+  const updateVisit = c.env.DB.prepare(
+    `UPDATE visits SET therapist_name = ?, therapist_service_technique = ?, therapist_body_parts_notes = ? WHERE id = ?`,
+  ).bind(therapistName, therapistServiceTechnique, therapistBodyPartsNotes, visitId)
+
+  if (delta === 0) {
+    await updateVisit.run()
+    return c.json({ ok: true, pointsDelta: 0 })
+  }
+
+  // Pre-check for fast friendly error (most common case)
+  if (delta < 0) {
+    const cust = await c.env.DB.prepare(
+      'SELECT loyalty_points FROM customers WHERE id = ?',
+    ).bind(visit.customer_id).first<{ loyalty_points: number }>()
+    if (!cust || cust.loyalty_points + delta < 0) {
+      return c.json({ error: 'Insufficient balance to revert points' }, 409)
+    }
+  }
+
+  const updateBalance = c.env.DB.prepare(
+    'UPDATE customers SET loyalty_points = loyalty_points + ? WHERE id = ?',
+  ).bind(delta, visit.customer_id)
+
+  try {
+    await c.env.DB.batch([updateVisit, updateBalance])
+  } catch (err) {
+    // Race: balance was drained between pre-check and batch.
+    // CHECK constraint failure rolls back the whole batch atomically.
+    const msg = (err as Error)?.message ?? ''
+    if (delta < 0 && /constraint|CHECK/i.test(msg)) {
+      return c.json({ error: 'Insufficient balance to revert points' }, 409)
+    }
+    throw err
+  }
+
+  return c.json({ ok: true, pointsDelta: delta })
 })
 
 // ============================================================================
